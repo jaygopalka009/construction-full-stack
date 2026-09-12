@@ -62,10 +62,10 @@ npm run dev
 
 ---
 
-## 📅 Commit Roadmap (Daily Incremental Pushes)
+## 📅 Project Roadmap & Implementation Modules
 
-- **Phase 1 (10% - Completed)**: Initial Repository Foundation (Config, Base Files, `.gitignore`, Dependencies structure, Enhanced Documentation).
-- **Phase 2 (30%)**: Backend Database Setup & Authentication APIs.
-- **Phase 3 (50%)**: Core Backend Services (Projects, Workers, Materials, Invoices API).
-- **Phase 4 (75%)**: Frontend Core Architecture & UI Components.
-- **Phase 5 (100%)**: Full Integration, Reports Module & Production Release.
+- **Phase 1**: Initial Repository Foundation & Configuration Setup.
+- **Phase 2**: Backend Server Setup, Database Connection & Authentication APIs.
+- **Phase 3**: Core Backend Services (Projects, Workers, Materials, Reports API).
+- **Phase 4**: Frontend Core Architecture & Dual Dashboards (Admin & Site Engineer).
+- **Phase 5**: Full Integration, Site Reports & Production Release.
