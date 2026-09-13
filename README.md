@@ -43,6 +43,16 @@ full stack web/
 
 ---
 
+## ✨ Key Features & Capabilities
+
+- **Role-Based Portals**: Tailored dashboards for Administrators and Site Engineers.
+- **Project Lifecycle Tracking**: Track milestones, categories, and progress from excavation to handover.
+- **Resource Management**: Real-time monitoring of site labor, attendance, and material catalogs.
+- **Cost & Expense Auditing**: Live expense analysis, budget allocation, and invoice generation.
+- **Site Activity Logging**: Daily site reports with status badges, weather conditions, and engineering notes.
+
+---
+
 ## 🚀 Setup & Quickstart
 
 ### 1. Backend Setup
