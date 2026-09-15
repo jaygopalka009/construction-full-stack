@@ -293,6 +293,10 @@ export default function EquipmentManager({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
           {filteredEquipment.map(item => {
             const badge = getStatusBadgeStyle(item.status);
+            const runHours = Number(item.runningHours) || 0;
+            const nextSvc = Number(item.nextServiceHours) || 0;
+            const isServiceDue = nextSvc > 0 && (runHours >= nextSvc || (nextSvc - runHours) <= 50);
+
             return (
               <div 
                 key={item.id}
@@ -300,7 +304,7 @@ export default function EquipmentManager({
                 style={{
                   background: '#ffffff',
                   borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
+                  border: isServiceDue ? '1px solid #fed7aa' : '1px solid #e2e8f0',
                   padding: '20px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -322,29 +326,51 @@ export default function EquipmentManager({
                     }}>
                       {item.type}
                     </span>
-                    <span style={{ 
-                      fontSize: '0.75rem', 
-                      fontWeight: 700, 
-                      color: badge.color, 
-                      background: badge.bg, 
-                      border: `1px solid ${badge.border}`,
-                      padding: '3px 10px', 
-                      borderRadius: '12px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: badge.color }} />
-                      {badge.label}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {isServiceDue && (
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: '#c2410c',
+                          background: '#ffedd5',
+                          padding: '2px 7px',
+                          borderRadius: '10px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}>
+                          <AlertTriangle size={11} /> Service Due
+                        </span>
+                      )}
+                      <span style={{ 
+                        fontSize: '0.75rem', 
+                        fontWeight: 700, 
+                        color: badge.color, 
+                        background: badge.bg, 
+                        border: `1px solid ${badge.border}`,
+                        padding: '3px 10px', 
+                        borderRadius: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: badge.color }} />
+                        {badge.label}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Machine Name & Reg Number */}
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
                     {item.name}
                   </h3>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, marginBottom: '14px' }}>
-                    Reg: <span style={{ color: '#1e293b', background: '#f8fafc', padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>{item.registrationNo || 'N/A'}</span>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>Reg: <span style={{ color: '#1e293b', background: '#f8fafc', padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>{item.registrationNo || 'N/A'}</span></span>
+                    {item.project && (
+                      <span style={{ fontSize: '0.75rem', color: '#2563eb', background: '#eff6ff', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                        {item.project}
+                      </span>
+                    )}
                   </div>
 
                   {/* Key Metrics: Operator, Running Hours, Fuel */}
