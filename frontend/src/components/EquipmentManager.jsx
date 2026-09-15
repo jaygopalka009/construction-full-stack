@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Truck, Tool, Search, Plus, Trash2, RefreshCw, CheckCircle, AlertTriangle, 
-  Clock, User, Phone, Droplet, Check, X, Briefcase 
+  Clock, User, Phone, Droplet, Check, X, Briefcase, Download 
 } from 'react-feather';
 
 export default function EquipmentManager({ 
@@ -91,6 +91,30 @@ export default function EquipmentManager({
     }
   };
 
+  const handleExportCsv = () => {
+    const headers = ['Machine Name', 'Category', 'Registration No', 'Status', 'Allocated Site', 'Operator', 'Contact', 'Running Hours', 'Fuel Level'];
+    const rows = filteredEquipment.map(item => [
+      `"${item.name || ''}"`,
+      `"${item.type || ''}"`,
+      `"${item.registrationNo || ''}"`,
+      `"${item.status || ''}"`,
+      `"${item.project || 'General Site'}"`,
+      `"${item.operatorName || ''}"`,
+      `"${item.operatorPhone || ''}"`,
+      item.runningHours || 0,
+      `"${item.fuelLevel || ''}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Equipment_Fleet_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getStatusBadgeStyle = (status) => {
     switch (status) {
       case 'Operating':
@@ -126,7 +150,15 @@ export default function EquipmentManager({
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={handleExportCsv}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+              title="Download fleet list as CSV"
+            >
+              <Download size={15} /> Export Fleet (CSV)
+            </button>
             <button 
               className="btn btn-primary" 
               onClick={() => setShowAddModal(true)}
