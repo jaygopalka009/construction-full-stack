@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import AdminDashboard from './components/AdminDashboard';
 import SiteEngineerDashboard from './components/SiteEngineerDashboard';
+import EquipmentManager from './components/EquipmentManager';
 import AuthPage from './components/AuthPage';
 import { CheckCircle, AlertCircle, Info } from 'react-feather';
 
@@ -120,6 +121,7 @@ export default function App() {
   const [dprs, setDprs] = useState([]);
   const [engineers, setEngineers] = useState([]);
   const [workers, setWorkers] = useState([]);
+  const [equipment, setEquipment] = useState([]);
   const [toast, setToast] = useState(null);
   const [hasSeenPendingProjects, setHasSeenPendingProjects] = useState(false);
 
@@ -137,13 +139,14 @@ export default function App() {
   // Fetch initial data from backend API
   const fetchData = async () => {
     try {
-      const [projRes, matRes, matReqRes, dprRes, engRes, workerRes] = await Promise.all([
+      const [projRes, matRes, matReqRes, dprRes, engRes, workerRes, eqRes] = await Promise.all([
         fetch('/api/projects').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/materials').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/materials/requests').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/reports/dpr').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/auth/engineers').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/workers').then(r => r.json()).catch(() => ({ success: false }))
+        fetch('/api/workers').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/equipment').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
       if (projRes.success && Array.isArray(projRes.projects)) {
@@ -171,6 +174,7 @@ export default function App() {
       if (dprRes.success && Array.isArray(dprRes.dprs)) setDprs(dprRes.dprs);
       if (engRes.success && Array.isArray(engRes.engineers)) setEngineers(engRes.engineers);
       if (workerRes.success && Array.isArray(workerRes.workers)) setWorkers(workerRes.workers);
+      if (eqRes.success && Array.isArray(eqRes.equipment)) setEquipment(eqRes.equipment);
     } catch (err) {
       console.error('Failed to connect to backend API:', err);
     }
@@ -825,10 +829,58 @@ export default function App() {
     }
   };
 
+  const handleAddEquipment = async (machineData) => {
+    try {
+      const res = await fetch('/api/equipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(machineData)
+      }).then(r => r.json());
+      if (res.success) {
+        showToast('Heavy machinery registered successfully!');
+        fetchData();
+      } else {
+        showToast(res.message || 'Error registering machinery', 'error');
+      }
+    } catch (e) {
+      showToast('Error registering machinery', 'error');
+    }
+  };
+
+  const handleUpdateEquipmentStatus = async (id, status) => {
+    try {
+      const res = await fetch(`/api/equipment/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      }).then(r => r.json());
+      if (res.success) {
+        showToast(`Machinery status updated to ${status}!`);
+        fetchData();
+      }
+    } catch (e) {
+      showToast('Error updating status', 'error');
+    }
+  };
+
+  const handleDeleteEquipment = async (id) => {
+    if (!window.confirm('Are you sure you want to remove this equipment from fleet?')) return;
+    try {
+      const res = await fetch(`/api/equipment/${id}`, { method: 'DELETE' }).then(r => r.json());
+      if (res.success) {
+        showToast('Equipment removed from inventory');
+        fetchData();
+      }
+    } catch (e) {
+      showToast('Error deleting equipment', 'error');
+    }
+  };
+
   const defaultDashboardPath = isAdmin ? '/admin/dashboard' : '/site/dashboard';
 
   // Map URL Path to activeTab string
   const getActiveTabFromPath = (path) => {
+    if (path.includes('/equipment') || path.includes('/machinery')) return 'equipment';
     if (path.includes('/projects') || path.includes('/photos')) return isAdmin ? 'projects' : 'my_projects';
     if (path.includes('/engineers') || path.includes('/employees')) return 'engineers';
     if (path.includes('/workers')) return 'workers';
@@ -882,7 +934,15 @@ export default function App() {
 
                 {/* Right Main Content View */}
                 <main style={{ flex: 1, padding: '24px', maxWidth: '1400px' }}>
-                  {isAdmin ? (
+                  {activeTab === 'equipment' ? (
+                    <EquipmentManager 
+                      equipment={equipment}
+                      isAdmin={isAdmin}
+                      onAddEquipment={handleAddEquipment}
+                      onUpdateStatus={handleUpdateEquipmentStatus}
+                      onDeleteEquipment={handleDeleteEquipment}
+                    />
+                  ) : isAdmin ? (
                     <AdminDashboard 
                       activeTab={activeTab}
                       projects={safeProjects}

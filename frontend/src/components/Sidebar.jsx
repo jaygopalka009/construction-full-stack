@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Grid, Briefcase, Package, Users, FileText, CheckSquare, TrendingUp, Clipboard, DollarSign, LogOut, Camera, ChevronDown, ChevronRight
+  Grid, Briefcase, Package, Users, FileText, CheckSquare, TrendingUp, Clipboard, DollarSign, LogOut, Camera, ChevronDown, ChevronRight, Truck
 } from 'react-feather';
 import { CONSTRUCTION_LABOR_CATEGORIES, isWorkerInTrade } from '../utils/laborCategories';
 
@@ -20,6 +20,7 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
   const adminNav = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: Grid },
     { path: '/admin/projects', label: 'Projects & Sites', icon: Briefcase },
+    { path: '/admin/equipment', label: 'Machinery & Tools', icon: Truck },
     { path: '/admin/engineers', label: 'Site Engineers', icon: Users },
     { path: '/admin/expenses', label: 'Expenses', icon: DollarSign },
     { path: '/admin/reports', label: 'Daily Reports', icon: FileText }
@@ -29,6 +30,7 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
     { path: '/site/dashboard', label: 'Dashboard', icon: Grid },
     { path: '/site/projects', label: 'My Projects', icon: Briefcase, hasBadge: hasPendingProjects },
     { path: '/site/tasks', label: 'Tasks', icon: CheckSquare },
+    { path: '/site/equipment', label: 'Machinery & Tools', icon: Truck },
     { path: '/site/workers', label: 'Site Labor', icon: Users, isLaborMenu: true },
     { path: '/site/site-progress', label: 'Site Progress', icon: TrendingUp },
     { path: '/site/reports', label: 'Daily Reports', icon: Clipboard }
