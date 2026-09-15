@@ -6,9 +6,8 @@ const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const materialRoutes = require('./routes/materials');
 const reportRoutes = require('./routes/reports');
-const invoiceRoutes = require('./routes/invoices');
-const changeOrderRoutes = require('./routes/changeOrders');
 const workerRoutes = require('./routes/workers');
+const equipmentRoutes = require('./routes/equipment');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,9 +28,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/change-orders', changeOrderRoutes);
 app.use('/api/workers', workerRoutes);
+app.use('/api/equipment', equipmentRoutes);
 
 const db = require('./database/db');
 
