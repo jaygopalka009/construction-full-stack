@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { 
   Truck, Tool, Search, Plus, Trash2, RefreshCw, CheckCircle, AlertTriangle, 
-  Clock, User, Phone, Droplet, Check, X 
+  Clock, User, Phone, Droplet, Check, X, Briefcase 
 } from 'react-feather';
 
 export default function EquipmentManager({ 
   equipment = [], 
+  projects = [],
   isAdmin = false, 
   onAddEquipment, 
   onUpdateStatus, 
@@ -13,6 +14,7 @@ export default function EquipmentManager({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [projectFilter, setProjectFilter] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,10 +55,12 @@ export default function EquipmentManager({
       (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.registrationNo || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.operatorName || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (item.operatorName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.project || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesProject = projectFilter === 'All' || (item.project && item.project === projectFilter);
+    return matchesSearch && matchesStatus && matchesProject;
   });
 
   const handleCreateMachine = async (e) => {
@@ -215,6 +219,32 @@ export default function EquipmentManager({
             }}
           />
         </div>
+
+        {/* Project Site Filter Dropdown */}
+        {projects && projects.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Briefcase size={15} color="#64748b" />
+            <select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              style={{
+                padding: '7px 10px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+                color: '#334155',
+                background: '#f8fafc',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="All">All Site Locations</option>
+              {projects.map(p => (
+                <option key={p.id || p.name} value={p.name}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Status Filter Tabs */}
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>

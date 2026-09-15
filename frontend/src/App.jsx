@@ -937,6 +937,7 @@ export default function App() {
                   {activeTab === 'equipment' ? (
                     <EquipmentManager 
                       equipment={equipment}
+                      projects={safeProjects}
                       isAdmin={isAdmin}
                       onAddEquipment={handleAddEquipment}
                       onUpdateStatus={handleUpdateEquipmentStatus}
