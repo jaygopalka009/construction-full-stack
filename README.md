@@ -17,7 +17,7 @@ An end-to-end Construction Management & ERP platform for tracking sites, labor (
 full stack web/
 ├── backend/                # Node.js + Express REST API
 │   ├── database/           # MongoDB Connection & Schemas
-│   ├── routes/             # API Endpoints (Auth, Projects, Workers, Materials, etc.)
+│   ├── routes/             # API Endpoints (Auth, Projects, Workers, Materials, Equipment, Reports)
 │   ├── server.js           # Server Entry Point
 │   ├── package.json        # Backend Dependencies
 │   └── .env.example        # Environment Blueprint
@@ -47,8 +47,9 @@ full stack web/
 
 - **Role-Based Portals**: Tailored dashboards for Administrators and Site Engineers.
 - **Project Lifecycle Tracking**: Track milestones, categories, and progress from excavation to handover.
+- **Heavy Machinery & Fleet Management**: Real-time tracking of excavators, cranes, transit mixers, rollers, running meter hours, maintenance service intervals, and site dispatch allocation.
 - **Resource Management**: Real-time monitoring of site labor, attendance, and material catalogs.
-- **Cost & Expense Auditing**: Live expense analysis, budget allocation, and invoice generation.
+- **Cost & Expense Auditing**: Live expense analysis, budget allocation, and financial tracking.
 - **Site Activity Logging**: Daily site reports with status badges, weather conditions, and engineering notes.
 
 ---
