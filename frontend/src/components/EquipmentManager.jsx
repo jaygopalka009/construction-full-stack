@@ -366,13 +366,13 @@ export default function EquipmentManager({
                 style={{
                   background: '#ffffff',
                   borderRadius: '12px',
-                  border: isServiceDue ? '1px solid #fed7aa' : '1px solid #e2e8f0',
+                  border: isServiceDue ? '1.5px solid #fed7aa' : '1px solid #e2e8f0',
                   padding: '20px',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                  transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                  boxShadow: isServiceDue ? '0 4px 12px rgba(234, 88, 12, 0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 <div>
