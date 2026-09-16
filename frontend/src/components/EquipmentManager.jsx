@@ -10,6 +10,7 @@ export default function EquipmentManager({
   isAdmin = false, 
   onAddEquipment, 
   onUpdateStatus, 
+  onLogShift,
   onDeleteEquipment 
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,6 +18,13 @@ export default function EquipmentManager({
   const [projectFilter, setProjectFilter] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Shift Meter Logger Modal State
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [selectedMachine, setSelectedMachine] = useState(null);
+  const [shiftHours, setShiftHours] = useState('8');
+  const [shiftFuel, setShiftFuel] = useState('80%');
+  const [shiftNotes, setShiftNotes] = useState('');
 
   // New Equipment Form State
   const [newMachine, setNewMachine] = useState({
@@ -89,6 +97,27 @@ export default function EquipmentManager({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleOpenLogModal = (machine) => {
+    setSelectedMachine(machine);
+    setShiftHours('8');
+    setShiftFuel(machine.fuelLevel || '75%');
+    setShiftNotes('');
+    setShowLogModal(true);
+  };
+
+  const handleSubmitShiftLog = async (e) => {
+    e.preventDefault();
+    if (!selectedMachine) return;
+    if (onLogShift) {
+      await onLogShift(selectedMachine.id, {
+        hoursWorked: Number(shiftHours) || 0,
+        fuelLevel: shiftFuel,
+        shiftNotes: shiftNotes
+      });
+    }
+    setShowLogModal(false);
   };
 
   const handleExportCsv = () => {
@@ -711,6 +740,146 @@ export default function EquipmentManager({
                   style={{ background: '#d97706', borderColor: '#b45309' }}
                 >
                   {isSubmitting ? 'Saving...' : 'Register Machinery'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Daily Shift Hours & Fuel Modal */}
+      {showLogModal && selectedMachine && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '440px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#f8fafc'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={18} color="#0284c7" />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a', fontWeight: 700 }}>
+                  Log Daily Shift Running Hours
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowLogModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitShiftLog} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Machinery:</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+                  {selectedMachine.name} ({selectedMachine.registrationNo})
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#0369a1', marginTop: '2px' }}>
+                  Current Total: {selectedMachine.runningHours || 0} hrs
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Hours Worked in Today's Shift
+                </label>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
+                  {['4', '6', '8', '10'].map(hrs => (
+                    <button
+                      key={hrs}
+                      type="button"
+                      onClick={() => setShiftHours(hrs)}
+                      style={{
+                        flex: 1,
+                        padding: '6px',
+                        borderRadius: '6px',
+                        border: shiftHours === hrs ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                        background: shiftHours === hrs ? '#eff6ff' : '#ffffff',
+                        color: shiftHours === hrs ? '#0369a1' : '#475569',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      +{hrs} hrs
+                    </button>
+                  ))}
+                </div>
+                <input 
+                  type="number" 
+                  step="0.5"
+                  required
+                  value={shiftHours}
+                  onChange={(e) => setShiftHours(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Remaining Fuel / Power Level
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 70% or 45 Litres"
+                  value={shiftFuel}
+                  onChange={(e) => setShiftFuel(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Shift Remarks / Work Done
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Excavation along grid line A-C"
+                  value={shiftNotes}
+                  onChange={(e) => setShiftNotes(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowLogModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  style={{ background: '#0284c7', borderColor: '#0369a1' }}
+                >
+                  Save Shift Log
                 </button>
               </div>
             </form>
