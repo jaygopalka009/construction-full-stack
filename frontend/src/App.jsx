@@ -881,6 +881,24 @@ export default function App() {
     }
   };
 
+  const handleLogEquipmentService = async (id, serviceData) => {
+    try {
+      const res = await fetch(`/api/equipment/${id}/service`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(serviceData)
+      }).then(r => r.json());
+      if (res.success) {
+        showToast(res.message || 'Service record logged successfully!');
+        fetchData();
+      } else {
+        showToast(res.message || 'Error recording service', 'error');
+      }
+    } catch (e) {
+      showToast('Error recording service', 'error');
+    }
+  };
+
   const handleDeleteEquipment = async (id) => {
     if (!window.confirm('Are you sure you want to remove this equipment from fleet?')) return;
     try {
@@ -960,6 +978,7 @@ export default function App() {
                       onAddEquipment={handleAddEquipment}
                       onUpdateStatus={handleUpdateEquipmentStatus}
                       onLogShift={handleLogEquipmentShift}
+                      onLogService={handleLogEquipmentService}
                       onDeleteEquipment={handleDeleteEquipment}
                     />
                   ) : isAdmin ? (
