@@ -899,6 +899,24 @@ export default function App() {
     }
   };
 
+  const handleReallocateEquipment = async (id, project) => {
+    try {
+      const res = await fetch(`/api/equipment/${id}/reallocate`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project })
+      }).then(r => r.json());
+      if (res.success) {
+        showToast(res.message || 'Equipment reallocated successfully!');
+        fetchData();
+      } else {
+        showToast(res.message || 'Error reallocating equipment', 'error');
+      }
+    } catch (e) {
+      showToast('Error reallocating equipment', 'error');
+    }
+  };
+
   const handleDeleteEquipment = async (id) => {
     if (!window.confirm('Are you sure you want to remove this equipment from fleet?')) return;
     try {
@@ -979,6 +997,7 @@ export default function App() {
                       onUpdateStatus={handleUpdateEquipmentStatus}
                       onLogShift={handleLogEquipmentShift}
                       onLogService={handleLogEquipmentService}
+                      onReallocate={handleReallocateEquipment}
                       onDeleteEquipment={handleDeleteEquipment}
                     />
                   ) : isAdmin ? (
