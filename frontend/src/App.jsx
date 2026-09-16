@@ -863,6 +863,24 @@ export default function App() {
     }
   };
 
+  const handleLogEquipmentShift = async (id, shiftData) => {
+    try {
+      const res = await fetch(`/api/equipment/${id}/log-shift`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(shiftData)
+      }).then(r => r.json());
+      if (res.success) {
+        showToast(res.message || 'Shift logged successfully!');
+        fetchData();
+      } else {
+        showToast(res.message || 'Error logging shift', 'error');
+      }
+    } catch (e) {
+      showToast('Error logging shift', 'error');
+    }
+  };
+
   const handleDeleteEquipment = async (id) => {
     if (!window.confirm('Are you sure you want to remove this equipment from fleet?')) return;
     try {
@@ -941,6 +959,7 @@ export default function App() {
                       isAdmin={isAdmin}
                       onAddEquipment={handleAddEquipment}
                       onUpdateStatus={handleUpdateEquipmentStatus}
+                      onLogShift={handleLogEquipmentShift}
                       onDeleteEquipment={handleDeleteEquipment}
                     />
                   ) : isAdmin ? (
