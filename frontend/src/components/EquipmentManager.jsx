@@ -56,6 +56,7 @@ export default function EquipmentManager({
   const operatingCount = equipment.filter(e => e.status === 'Operating').length;
   const idleCount = equipment.filter(e => e.status === 'Idle').length;
   const maintenanceCount = equipment.filter(e => e.status === 'Maintenance').length;
+  const utilizationRate = totalCount > 0 ? Math.round((operatingCount / totalCount) * 100) : 0;
 
   // Filtered Equipment List
   const filteredEquipment = equipment.filter(item => {
@@ -221,7 +222,7 @@ export default function EquipmentManager({
           <div>
             <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>In Operation</div>
             <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#059669' }}>{operatingCount}</div>
-            <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 500 }}>Working on Sites</div>
+            <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>{utilizationRate}% Fleet Deployed</div>
           </div>
         </div>
 
