@@ -12,11 +12,13 @@ export default function EquipmentManager({
   onUpdateStatus, 
   onLogShift,
   onLogService,
+  onReallocate,
   onDeleteEquipment 
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [projectFilter, setProjectFilter] = useState('All');
+  const [filterServiceDue, setFilterServiceDue] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,6 +83,12 @@ export default function EquipmentManager({
   const maintenanceCount = equipment.filter(e => e.status === 'Maintenance').length;
   const utilizationRate = totalCount > 0 ? Math.round((operatingCount / totalCount) * 100) : 0;
 
+  const serviceDueCount = equipment.filter(e => {
+    const run = Number(e.runningHours) || 0;
+    const next = Number(e.nextServiceHours) || 0;
+    return next > 0 && (run >= next || (next - run) <= 50);
+  }).length;
+
   // Filtered Equipment List
   const filteredEquipment = equipment.filter(item => {
     const matchesSearch = 
@@ -92,7 +100,13 @@ export default function EquipmentManager({
 
     const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
     const matchesProject = projectFilter === 'All' || (item.project && item.project === projectFilter);
-    return matchesSearch && matchesStatus && matchesProject;
+    const matchesServiceDue = !filterServiceDue || (
+      (Number(item.nextServiceHours) || 0) > 0 &&
+      ((Number(item.runningHours) || 0) >= (Number(item.nextServiceHours) || 0) ||
+       ((Number(item.nextServiceHours) || 0) - (Number(item.runningHours) || 0)) <= 50)
+    );
+
+    return matchesSearch && matchesStatus && matchesProject && matchesServiceDue;
   });
 
   const handleCreateMachine = async (e) => {
@@ -359,11 +373,14 @@ export default function EquipmentManager({
         {/* Status Filter Tabs */}
         <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
           {['All', 'Operating', 'Idle', 'Maintenance'].map(status => {
-            const isActive = statusFilter === status;
+            const isActive = !filterServiceDue && statusFilter === status;
             return (
               <button
                 key={status}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => {
+                  setFilterServiceDue(false);
+                  setStatusFilter(status);
+                }}
                 style={{
                   padding: '6px 14px',
                   borderRadius: '6px',
@@ -381,6 +398,33 @@ export default function EquipmentManager({
               </button>
             );
           })}
+
+          {/* Quick Service Due Filter Pill */}
+          {serviceDueCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterServiceDue(!filterServiceDue)}
+              title="Show only machinery with maintenance due"
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                background: filterServiceDue ? '#ea580c' : '#ffedd5',
+                color: filterServiceDue ? '#ffffff' : '#c2410c',
+                boxShadow: filterServiceDue ? '0 1px 3px rgba(234, 88, 12, 0.3)' : 'none',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <AlertTriangle size={13} />
+              Service Due ({serviceDueCount})
+            </button>
+          )}
         </div>
       </div>
 
@@ -474,13 +518,34 @@ export default function EquipmentManager({
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
                     {item.name}
                   </h3>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span>Reg: <span style={{ color: '#1e293b', background: '#f8fafc', padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>{item.registrationNo || 'N/A'}</span></span>
-                    {item.project && (
+                    {onReallocate && projects && projects.length > 0 ? (
+                      <select
+                        value={item.project || ''}
+                        onChange={(e) => onReallocate(item.id, e.target.value)}
+                        title="Reallocate machinery to another site location"
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#2563eb',
+                          background: '#eff6ff',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid #bfdbfe',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="">Central Yard / Unassigned</option>
+                        {projects.map(p => (
+                          <option key={p.id || p.name} value={p.name}>{p.name}</option>
+                        ))}
+                      </select>
+                    ) : item.project ? (
                       <span style={{ fontSize: '0.75rem', color: '#2563eb', background: '#eff6ff', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
                         {item.project}
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* Key Metrics: Operator, Running Hours, Fuel */}
