@@ -203,4 +203,63 @@ router.post('/:id/log-shift', async (req, res) => {
   }
 });
 
+// @route   POST /api/equipment/:id/service
+// @desc    Record maintenance service overhaul and advance next service interval
+router.post('/:id/service', async (req, res) => {
+  try {
+    const { serviceType, vendorOrMechanic, cost, nextServiceIntervalHours, notes } = req.body;
+    const index = (db.equipment || []).findIndex(e => e.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Equipment not found' });
+    }
+
+    const currentItem = db.equipment[index];
+    const serviceCost = Number(cost) || 0;
+    const interval = Number(nextServiceIntervalHours) || 250;
+    const currentHours = Number(currentItem.runningHours) || 0;
+
+    const serviceRecord = {
+      id: `svc_${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      serviceType: serviceType || 'Routine Maintenance',
+      vendorOrMechanic: vendorOrMechanic || 'In-house Workshop',
+      cost: serviceCost,
+      runningHoursAtService: currentHours,
+      notes: notes || 'Periodic preventive maintenance'
+    };
+
+    const updatedHistory = Array.isArray(currentItem.serviceHistory)
+      ? [serviceRecord, ...currentItem.serviceHistory]
+      : [serviceRecord];
+
+    const updated = {
+      ...currentItem,
+      status: currentItem.status === 'Maintenance' ? 'Idle' : currentItem.status,
+      lastServiceDate: serviceRecord.date,
+      nextServiceHours: currentHours + interval,
+      serviceHistory: updatedHistory,
+      updatedAt: new Date().toISOString()
+    };
+
+    db.equipment[index] = updated;
+
+    if (db.isMongoConnected && db.models && db.models.equipment) {
+      await db.models.equipment.updateOne(
+        { id: updated.id },
+        { $set: updated },
+        { upsert: true }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Maintenance service recorded. Next service scheduled at ${updated.nextServiceHours} hrs`,
+      equipment: updated
+    });
+  } catch (err) {
+    console.error('Error recording maintenance service:', err.message);
+    res.status(500).json({ success: false, message: 'Failed to record maintenance service' });
+  }
+});
+
 module.exports = router;
