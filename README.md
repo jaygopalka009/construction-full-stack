@@ -80,3 +80,12 @@ npm run dev
 - **Phase 3**: Core Backend Services (Projects, Workers, Materials, Reports API).
 - **Phase 4**: Frontend Core Architecture & Dual Dashboards (Admin & Site Engineer).
 - **Phase 5**: Full Integration, Site Reports & Production Release.
+
+---
+
+## 🚜 Equipment & Machinery REST API
+- `GET /api/equipment`: Retrieve list of all heavy construction machinery assets.
+- `POST /api/equipment`: Register new machinery into site inventory.
+- `PUT /api/equipment/:id`: Update machinery operational status (Operating, Idle, Maintenance).
+- `POST /api/equipment/:id/log-shift`: Log daily shift running hours and fuel reading.
+- `DELETE /api/equipment/:id`: Remove machinery from fleet database.
