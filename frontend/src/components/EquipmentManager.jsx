@@ -11,6 +11,7 @@ export default function EquipmentManager({
   onAddEquipment, 
   onUpdateStatus, 
   onLogShift,
+  onLogService,
   onDeleteEquipment 
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,6 +26,15 @@ export default function EquipmentManager({
   const [shiftHours, setShiftHours] = useState('8');
   const [shiftFuel, setShiftFuel] = useState('80%');
   const [shiftNotes, setShiftNotes] = useState('');
+
+  // Machinery Maintenance Service Modal State
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [selectedServiceMachine, setSelectedServiceMachine] = useState(null);
+  const [serviceType, setServiceType] = useState('Routine Inspection & Oil Filter');
+  const [vendorOrMechanic, setVendorOrMechanic] = useState('');
+  const [serviceCost, setServiceCost] = useState('');
+  const [nextServiceInterval, setNextServiceInterval] = useState('250');
+  const [serviceNotes, setServiceNotes] = useState('');
 
   // New Equipment Form State
   const [newMachine, setNewMachine] = useState({
@@ -57,6 +67,7 @@ export default function EquipmentManager({
       if (e.key === 'Escape') {
         setShowAddModal(false);
         setShowLogModal(false);
+        setShowServiceModal(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -131,6 +142,31 @@ export default function EquipmentManager({
       });
     }
     setShowLogModal(false);
+  };
+
+  const handleOpenServiceModal = (machine) => {
+    setSelectedServiceMachine(machine);
+    setServiceType('Routine Inspection & Oil Filter');
+    setVendorOrMechanic('');
+    setServiceCost('');
+    setNextServiceInterval('250');
+    setServiceNotes('');
+    setShowServiceModal(true);
+  };
+
+  const handleSubmitService = async (e) => {
+    e.preventDefault();
+    if (!selectedServiceMachine) return;
+    if (onLogService) {
+      await onLogService(selectedServiceMachine.id, {
+        serviceType,
+        vendorOrMechanic,
+        cost: Number(serviceCost) || 0,
+        nextServiceIntervalHours: Number(nextServiceInterval) || 250,
+        notes: serviceNotes
+      });
+    }
+    setShowServiceModal(false);
   };
 
   const handleExportCsv = () => {
@@ -551,6 +587,28 @@ export default function EquipmentManager({
                       <Clock size={12} color="#0284c7" /> Log Shift
                     </button>
 
+                    {/* Maintenance Service Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenServiceModal(item)}
+                      title="Record maintenance service / overhaul"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: isServiceDue ? '1px solid #f97316' : '1px solid #cbd5e1',
+                        background: isServiceDue ? '#fff7ed' : '#f8fafc',
+                        color: isServiceDue ? '#c2410c' : '#334155',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Tool size={12} color={isServiceDue ? '#ea580c' : '#64748b'} /> Service
+                    </button>
+
                     {/* Delete Button (for Admin) */}
                     {isAdmin && (
                       <button
@@ -917,6 +975,175 @@ export default function EquipmentManager({
                   style={{ background: '#0284c7', borderColor: '#0369a1' }}
                 >
                   Save Shift Log
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Maintenance Service Overhaul Modal */}
+      {showServiceModal && selectedServiceMachine && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '520px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            overflow: 'hidden',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: '#fff7ed'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Tool size={18} color="#ea580c" />
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#9a3412' }}>
+                  Log Maintenance / Service Overhaul
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowServiceModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitService} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+              <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>{selectedServiceMachine.name}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                  Current Running: <strong style={{ color: '#1e293b' }}>{selectedServiceMachine.runningHours || 0} hrs</strong>
+                  {selectedServiceMachine.nextServiceHours ? ` | Service Target: ${selectedServiceMachine.nextServiceHours} hrs` : ''}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Maintenance Type
+                </label>
+                <select
+                  value={serviceType}
+                  onChange={(e) => setServiceType(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                >
+                  <option value="Routine Inspection & Oil Filter">Routine Inspection & Oil Filter Change</option>
+                  <option value="Hydraulic System Overhaul">Hydraulic System & Fluid Overhaul</option>
+                  <option value="Engine & Transmission Service">Engine & Transmission Service</option>
+                  <option value="Brake & Track Undercarriage">Brake, Tires & Undercarriage Maintenance</option>
+                  <option value="Electrical & Battery Service">Electrical Wiring & Battery Service</option>
+                  <option value="Major Breakdown Repair">Major Breakdown Repair</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Mechanic / Service Vendor
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Caterpillar Service / Patel Mech"
+                    value={vendorOrMechanic}
+                    onChange={(e) => setVendorOrMechanic(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Maintenance Cost (₹)
+                  </label>
+                  <input 
+                    type="number" 
+                    placeholder="e.g. 8500"
+                    value={serviceCost}
+                    onChange={(e) => setServiceCost(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Next Service Due After (Meter Hours)
+                </label>
+                <input 
+                  type="number" 
+                  value={nextServiceInterval}
+                  onChange={(e) => setNextServiceInterval(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+                <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px', display: 'block' }}>
+                  Next service will trigger alert at: <strong>{((Number(selectedServiceMachine.runningHours) || 0) + (Number(nextServiceInterval) || 250))} hrs</strong>
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                  Service Remarks & Parts Replaced
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Mobil 15W40 oil changed, primary fuel filter replaced"
+                  value={serviceNotes}
+                  onChange={(e) => setServiceNotes(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              {/* Past Service History preview */}
+              {Array.isArray(selectedServiceMachine.serviceHistory) && selectedServiceMachine.serviceHistory.length > 0 && (
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                    Recent Service History:
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '90px', overflowY: 'auto' }}>
+                    {selectedServiceMachine.serviceHistory.slice(0, 3).map((hist, idx) => (
+                      <div key={idx} style={{ fontSize: '0.72rem', color: '#334155', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{hist.date} - {hist.serviceType}</span>
+                        <strong style={{ color: '#047857' }}>₹{hist.cost || 0}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowServiceModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  style={{ background: '#ea580c', borderColor: '#c2410c' }}
+                >
+                  Complete Service
                 </button>
               </div>
             </form>
