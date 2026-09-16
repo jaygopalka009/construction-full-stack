@@ -42,13 +42,16 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Machine name and type are required' });
     }
 
+    const validStatuses = ['Operating', 'Idle', 'Maintenance'];
+    const sanitizedStatus = validStatuses.includes(status) ? status : 'Idle';
+
     const newEquipment = {
       id: `eq_${Date.now()}`,
-      name,
-      type,
-      registrationNo: registrationNo || 'N/A',
-      status: status || 'Idle', // 'Operating', 'Idle', 'Maintenance'
-      operatorName: operatorName || 'Unassigned',
+      name: name.trim(),
+      type: type.trim(),
+      registrationNo: (registrationNo || 'N/A').trim(),
+      status: sanitizedStatus,
+      operatorName: operatorName ? operatorName.trim() : 'Unassigned',
       operatorPhone: operatorPhone || '',
       fuelLevel: fuelLevel || '100%',
       runningHours: Number(runningHours) || 0,
