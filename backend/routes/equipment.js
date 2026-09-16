@@ -146,4 +146,58 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// @route   POST /api/equipment/:id/log-shift
+// @desc    Log shift meter running hours and fuel reading
+router.post('/:id/log-shift', async (req, res) => {
+  try {
+    const { hoursWorked, fuelLevel, shiftNotes } = req.body;
+    const index = (db.equipment || []).findIndex(e => e.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Equipment not found' });
+    }
+
+    const currentItem = db.equipment[index];
+    const addedHours = Number(hoursWorked) || 0;
+    const newTotalHours = (Number(currentItem.runningHours) || 0) + addedHours;
+
+    const shiftEntry = {
+      date: new Date().toISOString().split('T')[0],
+      hoursWorked: addedHours,
+      totalHours: newTotalHours,
+      fuelLevel: fuelLevel || currentItem.fuelLevel,
+      notes: shiftNotes || 'Regular site shift'
+    };
+
+    const updatedLogs = Array.isArray(currentItem.logs) ? [shiftEntry, ...currentItem.logs] : [shiftEntry];
+
+    const updated = {
+      ...currentItem,
+      runningHours: newTotalHours,
+      fuelLevel: fuelLevel || currentItem.fuelLevel,
+      logs: updatedLogs,
+      lastShiftDate: shiftEntry.date,
+      updatedAt: new Date().toISOString()
+    };
+
+    db.equipment[index] = updated;
+
+    if (db.isMongoConnected && db.models && db.models.equipment) {
+      await db.models.equipment.updateOne(
+        { id: updated.id },
+        { $set: updated },
+        { upsert: true }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Logged +${addedHours} running hours successfully`,
+      equipment: updated
+    });
+  } catch (err) {
+    console.error('Error logging shift hours:', err.message);
+    res.status(500).json({ success: false, message: 'Failed to log shift' });
+  }
+});
+
 module.exports = router;
