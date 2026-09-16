@@ -515,27 +515,51 @@ export default function EquipmentManager({
                     </select>
                   </div>
 
-                  {/* Delete Button (for Admin) */}
-                  {isAdmin && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Log Shift Hours Button */}
                     <button
-                      onClick={() => onDeleteEquipment && onDeleteEquipment(item.id)}
-                      title="Remove Equipment"
+                      type="button"
+                      onClick={() => handleOpenLogModal(item)}
+                      title="Log shift running hours & fuel"
                       style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#94a3b8',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        borderRadius: '4px',
                         display: 'flex',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        background: '#f8fafc',
+                        color: '#334155',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer'
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = '#dc2626'}
-                      onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
                     >
-                      <Trash2 size={15} />
+                      <Clock size={12} color="#0284c7" /> Log Shift
                     </button>
-                  )}
+
+                    {/* Delete Button (for Admin) */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => onDeleteEquipment && onDeleteEquipment(item.id)}
+                        title="Remove Equipment"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#dc2626'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
