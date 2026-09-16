@@ -262,4 +262,43 @@ router.post('/:id/service', async (req, res) => {
   }
 });
 
+// @route   PATCH /api/equipment/:id/reallocate
+// @desc    Reallocate machinery to another construction site
+router.patch('/:id/reallocate', async (req, res) => {
+  try {
+    const { project } = req.body;
+    const index = (db.equipment || []).findIndex(e => e.id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Equipment not found' });
+    }
+
+    const currentItem = db.equipment[index];
+    const newProject = project ? project.trim() : 'Central Plant & Yard';
+
+    const updated = {
+      ...currentItem,
+      project: newProject,
+      updatedAt: new Date().toISOString()
+    };
+
+    db.equipment[index] = updated;
+
+    if (db.isMongoConnected && db.models && db.models.equipment) {
+      await db.models.equipment.updateOne(
+        { id: updated.id },
+        { $set: { project: newProject, updatedAt: updated.updatedAt } }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Equipment reallocated to ${newProject}`,
+      equipment: updated
+    });
+  } catch (err) {
+    console.error('Error reallocating equipment:', err.message);
+    res.status(500).json({ success: false, message: 'Failed to reallocate equipment' });
+  }
+});
+
 module.exports = router;
