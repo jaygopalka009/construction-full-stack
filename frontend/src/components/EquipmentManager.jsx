@@ -51,6 +51,18 @@ export default function EquipmentManager({
     'Concrete Pump'
   ];
 
+  // Handle ESC key to dismiss open modals cleanly
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowAddModal(false);
+        setShowLogModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Calculations for stats cards
   const totalCount = equipment.length;
   const operatingCount = equipment.filter(e => e.status === 'Operating').length;
