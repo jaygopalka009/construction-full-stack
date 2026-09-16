@@ -88,4 +88,6 @@ npm run dev
 - `POST /api/equipment`: Register new machinery into site inventory.
 - `PUT /api/equipment/:id`: Update machinery operational status (Operating, Idle, Maintenance).
 - `POST /api/equipment/:id/log-shift`: Log daily shift running hours and fuel reading.
+- `POST /api/equipment/:id/service`: Record maintenance overhaul event and advance next service interval.
 - `DELETE /api/equipment/:id`: Remove machinery from fleet database.
+
