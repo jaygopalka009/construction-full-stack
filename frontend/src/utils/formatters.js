@@ -24,3 +24,16 @@ export function formatNumber(num) {
   if (val >= 1000) return `${(val / 1000).toFixed(1)} K`;
   return val.toLocaleString('en-IN');
 }
+
+export function formatRunningHours(hours) {
+  const val = Number(hours) || 0;
+  return `${val.toLocaleString('en-IN')} hrs`;
+}
+
+export function getFuelBadgeColor(fuelStr) {
+  const num = parseInt(fuelStr, 10);
+  if (isNaN(num)) return '#059669';
+  if (num <= 25) return '#dc2626';
+  if (num <= 50) return '#d97706';
+  return '#059669';
+}
