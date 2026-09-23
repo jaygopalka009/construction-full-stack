@@ -92,4 +92,24 @@ npm run dev
 - `PATCH /api/equipment/:id/reallocate`: Reallocate machinery to another construction site project.
 - `DELETE /api/equipment/:id`: Remove machinery from fleet database.
 
+---
+
+## 👥 Workers & Site Labor REST API
+- `GET /api/workers`: Fetch all workers with attendance counts. Supports optional `?projectId=<id>` and `?status=Present|Absent` query filters.
+- `POST /api/workers`: Enroll new worker into site roster.
+- `PATCH /api/workers/:id`: Update worker profile, trade, daily wage, or attendance status.
+- `DELETE /api/workers/:id`: Remove worker from site roster.
+
+---
+
+## 📋 Daily Progress Reports (DPR) REST API
+- `GET /api/reports/dpr`: Retrieve site progress reports. Supports `?projectId=<id>`, `?date=YYYY-MM-DD`, and `?limit=<num>`.
+- `POST /api/reports/dpr`: Submit daily progress report with photos, labor breakdown, and material deductions.
+
+---
+
+## 🔍 System Health & Monitoring
+- `GET /api/health`: Provides server status, uptime seconds, MongoDB connection state, and live inventory metrics.
+
+
 
