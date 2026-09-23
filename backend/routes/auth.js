@@ -50,9 +50,16 @@ router.post('/register', (req, res) => {
     return res.status(400).json({ success: false, message: 'Please fill all required fields' });
   }
 
-  const existingUser = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  // Email duplicate check: same email cannot register again
+  const existingUser = db.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
   if (existingUser) {
-    return res.status(400).json({ success: false, message: 'This email address is already registered' });
+    return res.status(400).json({ success: false, message: 'This email address is already registered. Please use another email.' });
+  }
+
+  // Phone validation: must be exactly 10 digits (same phone across accounts is allowed)
+  const cleanPhone = phone ? String(phone).replace(/\D/g, '') : '';
+  if (phone && cleanPhone.length !== 10) {
+    return res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits' });
   }
 
   // Block trying to hijack admin email

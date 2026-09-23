@@ -479,8 +479,8 @@ export default function HomePage({ currentUser }) {
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 6px 0', color: '#0f172a' }}>
                   Email Support
                 </h3>
-                <a href="mailto:info@buildmaster.erp" style={{ fontSize: '0.95rem', fontWeight: 600, color: '#15803d', textDecoration: 'none' }}>
-                  info@buildmaster.erp
+                <a href="mailto:buildsite@gmail.com" style={{ fontSize: '0.95rem', fontWeight: 600, color: '#15803d', textDecoration: 'none' }}>
+                  buildsite@gmail.com
                 </a>
                 <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '4px 0 0 0' }}>
                   24/7 dedicated query assistance

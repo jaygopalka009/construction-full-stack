@@ -66,13 +66,22 @@ export default function AuthPage({ onLoginSuccess }) {
     setErrorMsg('');
     setLoading(true);
 
+    if (!isLogin) {
+      const cleanPhone = formData.phone ? formData.phone.replace(/\D/g, '') : '';
+      if (!cleanPhone || cleanPhone.length !== 10) {
+        setErrorMsg('Phone number must be exactly 10 digits');
+        setLoading(false);
+        return;
+      }
+    }
+
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
     const payload = isLogin
       ? { email: formData.email, password: formData.password }
       : {
           name: formData.name,
           email: formData.email,
-          phone: formData.phone,
+          phone: formData.phone.replace(/\D/g, ''),
           password: formData.password
         };
 
@@ -336,10 +345,15 @@ export default function AuthPage({ onLoginSuccess }) {
                   <input
                     className="form-control"
                     type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     style={{ paddingLeft: '38px', borderRadius: '8px' }}
                     placeholder="Enter your phone number"
                     value={formData.phone}
-                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setFormData({ ...formData, phone: digits });
+                    }}
                     required
                   />
                 </div>
