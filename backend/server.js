@@ -38,9 +38,12 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
     system: 'Construction ERP REST API',
+    uptimeSeconds: Math.floor(process.uptime()),
     database: db.isMongoConnected ? 'MongoDB Connected' : 'Local Fallback (data.json)',
-    mongoConnected: db.isMongoConnected,
+    mongoConnected: !!db.isMongoConnected,
     projectsCount: db.projects ? db.projects.length : 0,
+    materialsCount: db.materials ? db.materials.length : 0,
+    equipmentCount: db.equipment ? db.equipment.length : 0,
     timestamp: new Date().toISOString()
   });
 });
