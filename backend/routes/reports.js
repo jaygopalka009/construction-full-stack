@@ -2,14 +2,22 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 
-// GET /api/reports/dpr - Get all Daily Progress Reports
+// GET /api/reports/dpr - Get Daily Progress Reports (supports optional ?projectId=, ?date=, ?limit=)
 router.get('/dpr', (req, res) => {
-  const { projectId } = req.query;
+  const { projectId, date, limit } = req.query;
+  let list = Array.isArray(db.dprs) ? db.dprs : [];
+
   if (projectId) {
-    const list = db.dprs.filter(d => d.projectId === projectId);
-    return res.json({ success: true, dprs: list });
+    list = list.filter(d => d.projectId === projectId);
   }
-  res.json({ success: true, dprs: db.dprs });
+  if (date) {
+    list = list.filter(d => d.date === date);
+  }
+  if (limit && !isNaN(Number(limit))) {
+    list = list.slice(0, Math.max(0, parseInt(limit, 10)));
+  }
+
+  res.json({ success: true, dprs: list, total: list.length });
 });
 
 // POST /api/reports/dpr - Create a Daily Progress Report with Photo & Progress % Update
