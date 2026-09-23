@@ -35,6 +35,7 @@ router.post('/login', (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      phone: user.phone || '',
       projectId: user.projectId,
       avatar: user.avatar
     }
@@ -43,7 +44,7 @@ router.post('/login', (req, res) => {
 
 // POST /api/auth/register - All new registrations automatically create Site Engineer accounts
 router.post('/register', (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, phone, password } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ success: false, message: 'Please fill all required fields' });
@@ -67,6 +68,7 @@ router.post('/register', (req, res) => {
     id: `u_${Date.now()}`,
     name,
     email,
+    phone: phone || '',
     password,
     role: 'site_engineer',
     projectId: db.projects[0]?.id || '',
@@ -74,6 +76,7 @@ router.post('/register', (req, res) => {
   };
 
   db.users.push(newUser);
+  if (typeof db.save === 'function') db.save();
 
   const token = jwt.sign(
     { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role },
