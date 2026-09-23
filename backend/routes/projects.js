@@ -305,11 +305,11 @@ router.patch('/:id/tasks/:taskId', (req, res) => {
   const task = proj.tasks.find(t => t.id === req.params.taskId);
   if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
 
-  const { 
-    status, 
-    photo, 
-    photos, 
-    newPhotos, 
+  const {
+    status,
+    photo,
+    photos,
+    newPhotos,
     adminRemark,
     materialsUsed,
     materialCost,
@@ -338,7 +338,7 @@ router.patch('/:id/tasks/:taskId', (req, res) => {
     materialsUsed.forEach(item => {
       const qty = Number(item.quantity) || 0;
       if (qty <= 0) return;
-      const mat = db.materials.find(m => 
+      const mat = db.materials.find(m =>
         (item.materialId && m.id === item.materialId) ||
         (item.name && m.name.toLowerCase().includes(item.name.toLowerCase()))
       );

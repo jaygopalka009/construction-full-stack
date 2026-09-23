@@ -65,7 +65,7 @@ const categoryTaskTemplates = {
 // Ensure local storage is completely cleared and never used
 try {
   localStorage.clear();
-} catch (e) {}
+} catch (e) { }
 
 export default function App() {
   const navigate = useNavigate();
@@ -113,7 +113,7 @@ export default function App() {
         url.searchParams.delete('project');
         window.history.replaceState({}, '', url.toString());
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const [materials, setMaterials] = useState([]);
@@ -203,7 +203,7 @@ export default function App() {
             }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, []);
 
@@ -213,14 +213,14 @@ export default function App() {
       role: user.role || (user.email === 'admin@gmail.com' || user.email === 'admin@erp.com' ? 'admin' : 'site_engineer')
     };
     setCurrentUser(validUser);
-    
+
     // Store strictly in tab sessionStorage (NO localStorage)
     sessionStorage.setItem('erp_user', JSON.stringify(validUser));
     if (token) sessionStorage.setItem('erp_token', token);
-    try { localStorage.clear(); } catch (e) {}
-    
+    try { localStorage.clear(); } catch (e) { }
+
     showToast(`Welcome back, ${validUser.name}!`);
-    
+
     const targetPath = validUser.role === 'admin' ? '/admin/dashboard' : '/site/dashboard';
     navigate(targetPath);
   };
@@ -229,7 +229,7 @@ export default function App() {
     setCurrentUser(null);
     sessionStorage.removeItem('erp_user');
     sessionStorage.removeItem('erp_token');
-    try { localStorage.clear(); } catch (e) {}
+    try { localStorage.clear(); } catch (e) { }
     showToast('Logged out successfully', 'info');
     navigate('/login', { replace: true });
   };
@@ -276,8 +276,8 @@ export default function App() {
   };
 
   // For Site Engineer: only pass their own projects + pending projects they can accept
-  const engineerVisibleProjects = isAdmin 
-    ? safeProjects 
+  const engineerVisibleProjects = isAdmin
+    ? safeProjects
     : safeProjects.filter(p => doesProjectBelongToEngineer(p, currentUser) || isPendingProjectAvailableForEngineer(p, currentUser));
 
   const engineerAcceptedProjects = isAdmin
@@ -463,7 +463,7 @@ export default function App() {
       const res = await fetch(`/api/projects/${projectId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status,
           acceptedBy: assignedEngineer,
           engineerName: assignedEngineer,
@@ -577,7 +577,7 @@ export default function App() {
           body: JSON.stringify({ status: 'In-Progress' })
         });
         fetchData();
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -587,12 +587,12 @@ export default function App() {
   };
 
   const handleSubmitTaskForApproval = async (taskId, photoUrl, photosArray, consumptionData = {}) => {
-    const photosList = Array.isArray(photosArray) && photosArray.length > 0 
-      ? photosArray 
+    const photosList = Array.isArray(photosArray) && photosArray.length > 0
+      ? photosArray
       : (photoUrl ? [photoUrl] : []);
 
     const targetTask = tasks.find(t => t.id === taskId);
-    const targetProj = safeProjects.find(p => p.id === targetTask?.projectId || p.name === targetTask?.project) 
+    const targetProj = safeProjects.find(p => p.id === targetTask?.projectId || p.name === targetTask?.project)
       || (projects || []).find(p => p.tasks && p.tasks.some(t => t.id === taskId));
 
     // Optimistically update task with consumption data
@@ -620,8 +620,8 @@ export default function App() {
     // Optimistically deduct consumed materials from local stock
     if (Array.isArray(consumptionData.materialsUsed) && consumptionData.materialsUsed.length > 0) {
       setMaterials(prev => prev.map(m => {
-        const consumed = consumptionData.materialsUsed.find(c => 
-          (c.materialId && c.materialId === m.id) || 
+        const consumed = consumptionData.materialsUsed.find(c =>
+          (c.materialId && c.materialId === m.id) ||
           (c.name && c.name.toLowerCase() === m.name.toLowerCase())
         );
         if (consumed && consumed.quantity) {
@@ -732,7 +732,7 @@ export default function App() {
             adminRemark: 'Approved by Admin'
           })
         });
-      } catch (e) {}
+      } catch (e) { }
 
       const projTasks = updatedTasks.filter(t => t.project === targetTask.project || t.projectId === targetTask.projectId);
       const completedCount = projTasks.filter(t => t.status === 'Completed').length;
@@ -741,7 +741,7 @@ export default function App() {
       handleUpdateProject(targetProj.id, { progress: progressPercent, currentStage: targetTask.name });
 
       // Automatically compile DPR with dedicated material and labor costs
-      const materialsSummaryText = targetTask.materialsSummary || 
+      const materialsSummaryText = targetTask.materialsSummary ||
         (Array.isArray(targetTask.materialsUsed) && targetTask.materialsUsed.length > 0
           ? targetTask.materialsUsed.map(m => `${m.name}: ${m.quantity} ${m.unit}`).join(', ')
           : 'Standard Construction Materials');
@@ -793,7 +793,7 @@ export default function App() {
           })
         });
         fetchData();
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -952,26 +952,26 @@ export default function App() {
     <Routes>
       {/* Explicit Login / Home Routes */}
       {['/', '/login', '/site/login', '/admin/login', '/home'].map(path => (
-        <Route 
+        <Route
           key={path}
-          path={path} 
-          element={<AuthPage onLoginSuccess={handleLoginSuccess} />} 
+          path={path}
+          element={<AuthPage onLoginSuccess={handleLoginSuccess} />}
         />
       ))}
 
       {/* Main ERP Protected Routes */}
-      <Route 
-        path="/*" 
+      <Route
+        path="/*"
         element={
           !currentUser ? (
             <Navigate to="/login" replace />
           ) : (
             <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
               {/* Top Navbar */}
-              <Navbar 
+              <Navbar
                 currentUser={currentUser}
-                projects={isAdmin ? safeProjects : engineerAcceptedProjects} 
-                currentProjectId={currentProjectId} 
+                projects={isAdmin ? safeProjects : engineerAcceptedProjects}
+                currentProjectId={currentProjectId}
                 setCurrentProjectId={setCurrentProjectId}
                 onLogout={handleLogout}
               />
@@ -979,8 +979,8 @@ export default function App() {
               {/* Main Body Layout: Left Sidebar + Right Content Area */}
               <div style={{ flex: 1, display: 'flex' }}>
                 {/* Left Sidebar Menu */}
-                <Sidebar 
-                  currentUser={currentUser} 
+                <Sidebar
+                  currentUser={currentUser}
                   onLogout={handleLogout}
                   hasPendingProjects={!hasSeenPendingProjects && engineerVisibleProjects.some(p => isPendingProjectAvailableForEngineer(p, currentUser))}
                   workers={workers}
@@ -989,7 +989,7 @@ export default function App() {
                 {/* Right Main Content View */}
                 <main style={{ flex: 1, padding: '24px', maxWidth: '1400px' }}>
                   {activeTab === 'equipment' ? (
-                    <EquipmentManager 
+                    <EquipmentManager
                       equipment={equipment}
                       projects={safeProjects}
                       isAdmin={isAdmin}
@@ -1001,7 +1001,7 @@ export default function App() {
                       onDeleteEquipment={handleDeleteEquipment}
                     />
                   ) : isAdmin ? (
-                    <AdminDashboard 
+                    <AdminDashboard
                       activeTab={activeTab}
                       projects={safeProjects}
                       currentProjectId={currentProjectId}
@@ -1027,7 +1027,7 @@ export default function App() {
                       onDeleteProject={handleDeleteProject}
                     />
                   ) : (
-                    <SiteEngineerDashboard 
+                    <SiteEngineerDashboard
                       currentUser={currentUser}
                       activeTab={activeTab}
                       currentProject={currentProject}
@@ -1086,7 +1086,7 @@ export default function App() {
               )}
             </div>
           )
-        } 
+        }
       />
     </Routes>
   );
