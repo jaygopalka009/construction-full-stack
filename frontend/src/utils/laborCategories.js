@@ -87,3 +87,44 @@ export const isWorkerInTrade = (workerTrade, categoryIdOrLabel) => {
   return wt === target;
 };
 
+/**
+ * Returns all labor category IDs
+ * @returns {string[]} Array of category ID strings
+ */
+export const getAllLaborCategoryIds = () => {
+  return CONSTRUCTION_LABOR_CATEGORIES.map(c => c.id);
+};
+
+/**
+ * Retrieves the work description of a labor trade category
+ * @param {string} categoryId - Category identifier or trade name
+ * @returns {string} Description of responsibilities
+ */
+export const getLaborCategoryDescription = (categoryId) => {
+  if (!categoryId) return '';
+  const match = CONSTRUCTION_LABOR_CATEGORIES.find(
+    c => c.id.toLowerCase() === categoryId.toLowerCase() || c.label.toLowerCase() === categoryId.toLowerCase()
+  );
+  return match ? match.description : '';
+};
+
+/**
+ * Provides standard theme accent colors for labor trades
+ * @param {string} categoryId - Category identifier or trade name
+ * @returns {string} Hex color string
+ */
+export const getLaborCategoryColor = (categoryId) => {
+  const target = (categoryId || '').toLowerCase();
+  if (target.includes('mason') && !target.includes('tile')) return '#f59e0b';
+  if (target.includes('tile')) return '#8b5cf6';
+  if (target.includes('helper') || target.includes('labor')) return '#10b981';
+  if (target.includes('bar bender') || target.includes('steel')) return '#6366f1';
+  if (target.includes('carpenter')) return '#d97706';
+  if (target.includes('plumber')) return '#06b6d4';
+  if (target.includes('electrician')) return '#eab308';
+  if (target.includes('painter')) return '#ec4899';
+  if (target.includes('welder')) return '#ef4444';
+  if (target.includes('machine') || target.includes('operator')) return '#3b82f6';
+  return '#64748b';
+};
+
