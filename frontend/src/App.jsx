@@ -68,6 +68,7 @@ export default function App() {
   const [dprs, setDprs] = useState([]);
   const [engineers, setEngineers] = useState([]);
   const [workers, setWorkers] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [toast, setToast] = useState(null);
   const [hasSeenPendingProjects, setHasSeenPendingProjects] = useState(false);
 
@@ -85,13 +86,14 @@ export default function App() {
   // Fetch initial data from backend API
   const fetchData = async () => {
     try {
-      const [projRes, matRes, matReqRes, dprRes, engRes, workerRes] = await Promise.all([
+      const [projRes, matRes, matReqRes, dprRes, engRes, workerRes, expRes] = await Promise.all([
         fetch('/api/projects').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/materials').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/materials/requests').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/reports/dpr').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/auth/engineers').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/workers').then(r => r.json()).catch(() => ({ success: false }))
+        fetch('/api/workers').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/expenses').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
       if (projRes.success && Array.isArray(projRes.projects)) {
@@ -119,6 +121,7 @@ export default function App() {
       if (dprRes.success && Array.isArray(dprRes.dprs)) setDprs(dprRes.dprs);
       if (engRes.success && Array.isArray(engRes.engineers)) setEngineers(engRes.engineers);
       if (workerRes.success && Array.isArray(workerRes.workers)) setWorkers(workerRes.workers);
+      if (expRes.success && Array.isArray(expRes.expenses)) setExpenses(expRes.expenses);
     } catch (err) {
       console.error('Failed to connect to backend API:', err);
     }
@@ -773,6 +776,86 @@ export default function App() {
     }
   };
 
+  // Site Engineer Submits Expense Claim
+  const handleAddExpense = async (expenseData) => {
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expenseData)
+      }).then(r => r.json());
+      if (res.success) {
+        showToast(res.message || 'Site expense submitted for Admin payment!');
+        fetchData();
+        return true;
+      } else {
+        showToast(res.message || 'Error submitting expense', 'error');
+        return false;
+      }
+    } catch (e) {
+      showToast('Server connection error submitting expense', 'error');
+      return false;
+    }
+  };
+
+  // Admin Pays / Releases Funds for an Expense -> Credits to Site Engineer Wallet
+  const handlePayExpense = async (expenseId, paymentDetails = {}) => {
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentDetails)
+      }).then(r => r.json());
+      if (res.success) {
+        showToast(res.message || 'Payment released and credited to engineer wallet!');
+        fetchData();
+        return true;
+      } else {
+        showToast(res.message || 'Error releasing payment', 'error');
+        return false;
+      }
+    } catch (e) {
+      showToast('Server connection error processing payment', 'error');
+      return false;
+    }
+  };
+
+  // Admin Transfers Advance Petty Cash to Engineer Wallet
+  const handleSendWalletAdvance = async (advanceData) => {
+    try {
+      const res = await fetch('/api/expenses/wallet/advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(advanceData)
+      }).then(r => r.json());
+      if (res.success) {
+        showToast(res.message || 'Advance funds credited to engineer wallet!');
+        fetchData();
+        return true;
+      } else {
+        showToast(res.message || 'Error sending advance funds', 'error');
+        return false;
+      }
+    } catch (e) {
+      showToast('Server connection error sending advance', 'error');
+      return false;
+    }
+  };
+
+  // Admin Clean Database Wipe
+  const handleWipeDatabase = async () => {
+    if (!window.confirm('WARNING: Are you sure you want to completely clean and wipe all projects, users, reports, and data? Only default admin will remain.')) return;
+    try {
+      const res = await fetch('/api/expenses/wipe-db', { method: 'POST' }).then(r => r.json());
+      if (res.success) {
+        showToast('All collections wiped clean successfully!');
+        fetchData();
+      }
+    } catch (e) {
+      showToast('Error resetting database', 'error');
+    }
+  };
+
 
 
   const defaultDashboardPath = isAdmin ? '/admin/dashboard' : '/site/dashboard';
@@ -853,6 +936,7 @@ export default function App() {
                       materialRequests={materialRequests}
                       engineers={engineers}
                       workers={workers}
+                      expenses={expenses}
                       onAddWorker={handleAddWorker}
                       onToggleWorkerAttendance={handleToggleWorkerAttendance}
                       onDeleteWorker={handleDeleteWorker}
@@ -867,6 +951,9 @@ export default function App() {
                       onAddProject={handleAddProject}
                       onUpdateProject={handleUpdateProject}
                       onDeleteProject={handleDeleteProject}
+                      onPayExpense={handlePayExpense}
+                      onSendWalletAdvance={handleSendWalletAdvance}
+                      onWipeDatabase={handleWipeDatabase}
                     />
                   ) : (
                     <SiteEngineerDashboard
@@ -879,6 +966,8 @@ export default function App() {
                       materials={materials}
                       materialRequests={materialRequests}
                       workers={workers}
+                      expenses={expenses}
+                      onAddExpense={handleAddExpense}
                       onAddWorker={handleAddWorker}
                       onToggleWorkerAttendance={handleToggleWorkerAttendance}
                       onDeleteWorker={handleDeleteWorker}

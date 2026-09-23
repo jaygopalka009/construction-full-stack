@@ -18,6 +18,7 @@ let db = {
   clients: [],
   projects: [],
   dprs: [],
+  expenses: [],
   workers: {
     total: 0,
     present: 0,
@@ -41,6 +42,18 @@ db.getNextProjectId = function() {
   return String(maxId + 1);
 };
 
+// Auto-increment expense ID counter: 1, 2, 3, 4...
+db.getNextExpenseId = function() {
+  let maxId = 0;
+  (db.expenses || []).forEach(e => {
+    const num = parseInt(String(e.id || '').replace(/\D/g, ''), 10);
+    if (!isNaN(num) && num > maxId) {
+      maxId = num;
+    }
+  });
+  return String(maxId + 1);
+};
+
 // Mongoose Schemas & Models
 const schemaOptions = { strict: false, id: false, versionKey: false, timestamps: true };
 
@@ -54,6 +67,7 @@ const models = {
   clients: createModel('Client', 'clients'),
   projects: createModel('Project', 'projects'),
   dprs: createModel('DPR', 'dprs'),
+  expenses: createModel('Expense', 'expenses'),
   workers: createModel('Worker', 'workers'),
   materials: createModel('Material', 'materials')
 };
@@ -122,7 +136,7 @@ async function syncAllToMongo() {
   if (isSyncing || mongoose.connection.readyState !== 1) return;
   isSyncing = true;
   try {
-    const arrayKeys = ['admins', 'users', 'clients', 'projects', 'dprs', 'materials'];
+    const arrayKeys = ['admins', 'users', 'clients', 'projects', 'dprs', 'expenses', 'materials'];
     for (const key of arrayKeys) {
       if (models[key]) {
         await syncCollectionToMongo(key, models[key]);
@@ -152,7 +166,7 @@ async function initMongo() {
     }
 
     // Load data from MongoDB into memory
-    const arrayKeys = ['admins', 'users', 'clients', 'projects', 'dprs', 'materials'];
+    const arrayKeys = ['admins', 'users', 'clients', 'projects', 'dprs', 'expenses', 'materials'];
     for (const key of arrayKeys) {
       const Model = models[key];
       if (!Model) continue;
@@ -188,7 +202,7 @@ async function initMongo() {
       if (mongoose.connection && mongoose.connection.db) {
         const collections = await mongoose.connection.db.listCollections().toArray();
         const collNames = collections.map(c => c.name);
-        const deprecatedCollections = ['equipment', 'expenses', 'recentactivities', 'invoices', 'changeorders', 'employees'];
+        const deprecatedCollections = ['equipment', 'recentactivities', 'invoices', 'changeorders', 'employees'];
         for (const dropTarget of deprecatedCollections) {
           if (collNames.includes(dropTarget)) {
             await mongoose.connection.db.dropCollection(dropTarget);
@@ -212,6 +226,46 @@ async function initMongo() {
 }
 
 initMongo();
+
+// Method to completely wipe all collections cleanly (preserving default admin)
+db.wipeAllData = async function() {
+  console.log('[MongoDB] 🧹 Wiping all database collections cleanly...');
+  db.users = [];
+  db.clients = [];
+  db.projects = [];
+  db.dprs = [];
+  db.expenses = [];
+  db.materials = [];
+  db.workers = {
+    total: 0,
+    present: 0,
+    absent: 0,
+    assignedProject: "",
+    list: []
+  };
+  db.admins = [defaultAdmin];
+
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    try {
+      await models.users.deleteMany({});
+      await models.clients.deleteMany({});
+      await models.projects.deleteMany({});
+      await models.dprs.deleteMany({});
+      await models.expenses.deleteMany({});
+      await models.materials.deleteMany({});
+      await models.workers.deleteMany({});
+      await models.admins.deleteMany({ email: { $ne: defaultAdmin.email } });
+      const exists = await models.admins.findOne({ email: defaultAdmin.email });
+      if (!exists) {
+        await models.admins.create(defaultAdmin);
+      }
+      console.log('[MongoDB] ✅ All collections wiped clean! Only default admin preserved.');
+    } catch (err) {
+      console.error('[MongoDB] Error wiping collections:', err.message);
+    }
+  }
+  return { success: true, message: 'All database collections wiped cleanly! Only default admin active.' };
+};
 
 // Direct MongoDB Save function
 db.save = function() {

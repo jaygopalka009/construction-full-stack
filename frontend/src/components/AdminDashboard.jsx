@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Building2, IndianRupee, AlertTriangle, CheckCircle, XCircle, 
-  Package, FileCheck, Plus, RefreshCw, TrendingUp, Users, Wrench, FileText, CheckCircle2, Clock, MapPin, User, HardHat, Camera, Phone, Image
+  Package, FileCheck, Plus, RefreshCw, TrendingUp, Users, Wrench, FileText, CheckCircle2, Clock, MapPin, User, HardHat, Camera, Phone, Image,
+  CreditCard, DollarSign, Send, Trash2, Eye
 } from 'lucide-react';
 import { Check, X, MessageSquare, ChevronLeft, ChevronRight } from 'react-feather';
 import { formatCurrency } from '../utils/formatters';
@@ -16,6 +17,7 @@ export default function AdminDashboard({
   materialRequests = [], 
   engineers = [],
   workers = [],
+  expenses = [],
   onAddWorker,
   onToggleWorkerAttendance,
   onDeleteWorker,
@@ -29,7 +31,10 @@ export default function AdminDashboard({
   onUpdateStock,
   onAddProject,
   onUpdateProject,
-  onDeleteProject
+  onDeleteProject,
+  onPayExpense,
+  onSendWalletAdvance,
+  onWipeDatabase
 }) {
   // Local state for manual additions
   const [projectList, setProjectList] = useState(projects);
@@ -51,6 +56,20 @@ export default function AdminDashboard({
   const [expandedProjects, setExpandedProjects] = useState({});
   const [rejectingTask, setRejectingTask] = useState(null);
   const [taskRejectRemark, setTaskRejectRemark] = useState('');
+
+  // Expenses & Wallet Management State
+  const [payingExpense, setPayingExpense] = useState(null);
+  const [paymentMode, setPaymentMode] = useState('UPI / Bank Transfer');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  const [advanceData, setAdvanceData] = useState({
+    engineerEmail: '',
+    engineerName: '',
+    amount: '',
+    paymentMode: 'UPI / Bank Transfer',
+    notes: 'Site petty cash advance'
+  });
+  const [expenseFilterTab, setExpenseFilterTab] = useState('All');
   
   // Modal Form Input States
   const [newProj, setNewProj] = useState({ 
@@ -1149,82 +1168,255 @@ export default function AdminDashboard({
         </div>
       )}
 
-      {/* SECTION 5: Expenses */}
-      {(activeTab === 'expenses') && (
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                <IndianRupee size={18} color="#dc2626" /> 5. Project Expenses Tracker
-              </h3>
-              <p style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', margin: 0 }}>
-                Total Expenses: <strong style={{ color: '#dc2626', fontSize: '0.92rem' }}>{formatCurrency(totalExpensesAmount)}</strong> (Includes site labor wages, material consumption & expenses)
-              </p>
-            </div>
-            <button className="btn btn-primary btn-sm" onClick={() => setModalType('expense')}>
-              <Plus size={14} /> Add Manual Expense
-            </button>
-          </div>
+      {/* SECTION 5: Expenses & Site Engineer Wallets */}
+      {(activeTab === 'expenses') && (() => {
+        const siteExpenses = expenses || [];
+        const totalPaid = siteExpenses.filter(e => e.status === 'Paid').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const totalPending = siteExpenses.filter(e => e.status === 'Pending').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        const totalAll = totalPaid + totalPending;
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: '#64748b' }}>
-                  <th style={{ padding: '10px 8px' }}>Project</th>
-                  <th style={{ padding: '10px 8px' }}>Expense Type</th>
-                  <th style={{ padding: '10px 8px' }}>Details / Breakdown</th>
-                  <th style={{ padding: '10px 8px' }}>Amount (₹)</th>
-                  <th style={{ padding: '10px 8px' }}>Date</th>
-                  <th style={{ padding: '10px 8px' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allExpenses.length > 0 ? (
-                  allExpenses.map(exp => (
-                    <tr key={exp.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '10px 8px', fontWeight: 600, color: '#0f172a' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                          <Building2 size={14} color="#dc2626" /> {exp.project}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 8px' }}>
-                        <span style={{
-                          fontSize: '0.72rem',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          fontWeight: 600,
-                          background: exp.category === 'Labor' ? '#eff6ff' : (exp.category === 'Materials' ? '#fffbeb' : '#f1f5f9'),
-                          color: exp.category === 'Labor' ? '#1d4ed8' : (exp.category === 'Materials' ? '#b45309' : '#475569')
-                        }}>
-                          {exp.expenseType}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 8px', color: '#475569', fontSize: '0.8rem', maxWidth: '320px' }}>
-                        {exp.details || 'General project operational expense'}
-                      </td>
-                      <td style={{ padding: '10px 8px', fontWeight: 700, color: '#dc2626', fontSize: '0.9rem' }}>
-                        {formatCurrency(exp.amount)}
-                      </td>
-                      <td style={{ padding: '10px 8px', color: '#64748b', fontSize: '0.78rem' }}>{exp.date}</td>
-                      <td style={{ padding: '10px 8px' }}>
-                        <span className={`badge ${exp.status === 'Paid' || exp.status === 'Approved' ? 'badge-emerald' : 'badge-amber'}`}>
-                          {exp.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
-                      No expenses recorded yet. Task materials and labor wages will appear here automatically.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        const filteredExpenses = siteExpenses.filter(e => {
+          if (expenseFilterTab === 'Pending') return e.status === 'Pending';
+          if (expenseFilterTab === 'Paid') return e.status === 'Paid';
+          return true;
+        });
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Top Summary Card */}
+            <div className="glass-card" style={{ padding: '24px', background: '#ffffff', borderLeft: '5px solid #059669' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="badge badge-emerald" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                      <CreditCard size={13} style={{ marginRight: '4px' }} /> Site Wallet & Petty Cash Control
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      Admin Finance Desk
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: '1.35rem', color: '#0f172a', fontWeight: 800, margin: '6px 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <IndianRupee size={22} color="#059669" /> Site Expenses & Wallet Payment Releases
+                  </h3>
+                  <p style={{ fontSize: '0.84rem', color: '#64748b', margin: 0 }}>
+                    Review expense claims submitted by Site Engineers. Clicking <strong>"Pay / Release Funds"</strong> marks the claim as Paid and instantly credits the engineer's Site Wallet.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      const firstEng = (engineers && engineers.length > 0) ? engineers[0] : null;
+                      setAdvanceData({
+                        engineerEmail: firstEng?.email || '',
+                        engineerName: firstEng?.name || '',
+                        amount: '',
+                        paymentMode: 'UPI / Bank Transfer',
+                        notes: 'Site petty cash advance'
+                      });
+                      setShowAdvanceModal(true);
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#059669', borderColor: '#047857', fontWeight: 700, fontSize: '0.85rem' }}
+                  >
+                    <Send size={15} /> Send Advance Cash to Engineer
+                  </button>
+
+                  {onWipeDatabase && (
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      onClick={onWipeDatabase}
+                      title="Wipe all projects, users, reports, and reset database to clean default state"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fff1f2', color: '#dc2626', border: '1px solid #fecaca', fontWeight: 700, fontSize: '0.85rem' }}
+                    >
+                      <Trash2 size={15} /> Clean Reset Database
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Summary Metric Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                <div style={{ padding: '16px', background: '#ecfdf5', borderRadius: '10px', border: '1.5px solid #a7f3d0' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Total Released / Paid to Wallets
+                  </span>
+                  <h3 style={{ fontSize: '1.7rem', color: '#065f46', margin: '6px 0 2px 0', fontWeight: 900 }}>
+                    ₹{totalPaid.toLocaleString('en-IN')}
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: '#047857', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CheckCircle size={13} color="#059669" /> Credited to Engineers
+                  </div>
+                </div>
+
+                <div style={{ padding: '16px', background: '#fffbeb', borderRadius: '10px', border: '1.5px solid #fde68a' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Pending Payment Releases
+                  </span>
+                  <h3 style={{ fontSize: '1.7rem', color: '#b45309', margin: '6px 0 2px 0', fontWeight: 900 }}>
+                    ₹{totalPending.toLocaleString('en-IN')}
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={13} color="#d97706" /> {siteExpenses.filter(e => e.status === 'Pending').length} Claims waiting for payment
+                  </div>
+                </div>
+
+                <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Total Site Claims Processed
+                  </span>
+                  <h3 style={{ fontSize: '1.7rem', color: '#0f172a', margin: '6px 0 2px 0', fontWeight: 900 }}>
+                    {siteExpenses.length}
+                  </h3>
+                  <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                    Total Volume: ₹{totalAll.toLocaleString('en-IN')}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Tabs & Claims Table */}
+            <div className="glass-card" style={{ padding: '22px', background: '#ffffff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {['All', 'Pending', 'Paid'].map(tab => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setExpenseFilterTab(tab)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: expenseFilterTab === tab ? '#059669' : '#f1f5f9',
+                        color: expenseFilterTab === tab ? '#ffffff' : '#475569',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {tab} ({tab === 'All' ? siteExpenses.length : siteExpenses.filter(e => e.status === tab).length})
+                    </button>
+                  ))}
+                </div>
+
+                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  Showing {filteredExpenses.length} Claims
+                </span>
+              </div>
+
+              {filteredExpenses.length === 0 ? (
+                <div style={{ padding: '36px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                  <DollarSign size={32} color="#cbd5e1" style={{ margin: '0 auto 8px auto', display: 'block' }} />
+                  <p style={{ margin: 0, fontSize: '0.88rem' }}>No expense claims in this filter.</p>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '12px 14px' }}>Date</th>
+                        <th style={{ padding: '12px 14px' }}>Site Engineer</th>
+                        <th style={{ padding: '12px 14px' }}>Project</th>
+                        <th style={{ padding: '12px 14px' }}>Expense Title & Details</th>
+                        <th style={{ padding: '12px 14px' }}>Category</th>
+                        <th style={{ padding: '12px 14px' }}>Receipt / Bill</th>
+                        <th style={{ padding: '12px 14px' }}>Amount (₹)</th>
+                        <th style={{ padding: '12px 14px', textAlign: 'center' }}>Wallet Action / Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredExpenses.map((exp, idx) => {
+                        const isPaid = exp.status === 'Paid';
+                        return (
+                          <tr key={exp.id || idx} style={{ borderBottom: '1px solid #e2e8f0', background: isPaid ? '#ffffff' : '#fffbeb' }}>
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', color: '#64748b', fontSize: '0.82rem' }}>
+                              {exp.date}
+                            </td>
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{exp.engineerName || 'Site Engineer'}</div>
+                              {exp.engineerEmail && (
+                                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{exp.engineerEmail}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', color: '#475569', fontSize: '0.82rem' }}>
+                              {exp.projectName || 'General Site'}
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{exp.title}</div>
+                              {exp.description && (
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                  {exp.description}
+                                </div>
+                              )}
+                              {isPaid && (
+                                <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: '3px', fontWeight: 600 }}>
+                                  Paid via {exp.paymentMode || 'Cash'} {exp.paidAt ? `(${new Date(exp.paidAt).toLocaleDateString('en-GB')})` : ''}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                              <span style={{ background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '4px', fontSize: '0.74rem', fontWeight: 600 }}>
+                                {exp.category}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                              {exp.receiptPhoto ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setViewPhotoGallery([exp.receiptPhoto]);
+                                    setViewPhotoIndex(0);
+                                    setViewPhotoUrl(exp.receiptPhoto);
+                                  }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', color: '#2563eb', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer' }}
+                                >
+                                  <Eye size={13} /> View Bill
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>No Receipt</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                              <strong style={{ fontSize: '1rem', color: isPaid ? '#059669' : '#b45309' }}>
+                                ₹{Number(exp.amount).toLocaleString('en-IN')}
+                              </strong>
+                            </td>
+                            <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              {isPaid ? (
+                                <span className="badge badge-emerald" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.76rem', fontWeight: 700, padding: '4px 10px' }}>
+                                  <CheckCircle size={13} /> Paid to Wallet
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-primary"
+                                  onClick={() => {
+                                    setPayingExpense(exp);
+                                    setPaymentMode('UPI / Bank Transfer');
+                                    setPaymentNote('');
+                                  }}
+                                  style={{ background: '#059669', borderColor: '#047857', padding: '6px 14px', fontWeight: 700, fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                  <IndianRupee size={13} /> Pay / Release Funds
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* SECTION 6: Daily Reports (DPR) & Recent Activities */}
       {(activeTab === 'reports') && (
@@ -2513,6 +2705,247 @@ export default function AdminDashboard({
                 Send Rejection Remark
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Paying Expense Modal */}
+      {payingExpense && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div style={{ background: '#ffffff', width: '100%', maxWidth: '480px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CreditCard size={18} color="#059669" /> Release Payment to Site Wallet
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                  Confirm fund disbursement to {payingExpense.engineerName}'s wallet.
+                </p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setPayingExpense(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ padding: '12px 14px', background: '#ecfdf5', borderRadius: '8px', border: '1px solid #a7f3d0' }}>
+                <div style={{ fontSize: '0.76rem', color: '#047857', fontWeight: 700, textTransform: 'uppercase' }}>Amount to Credit</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#065f46', marginTop: '2px' }}>
+                  ₹{Number(payingExpense.amount).toLocaleString('en-IN')}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#047857', marginTop: '4px' }}>
+                  Claim: <strong>{payingExpense.title}</strong> ({payingExpense.category})
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                  Payment Mode *
+                </label>
+                <select
+                  value={paymentMode}
+                  onChange={e => setPaymentMode(e.target.value)}
+                  className="input-field"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
+                >
+                  <option value="UPI / Bank Transfer">UPI / Bank Transfer</option>
+                  <option value="Cash in Hand">Cash in Hand</option>
+                  <option value="Company Cheque">Company Cheque</option>
+                  <option value="Company Debit Card">Company Debit Card</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                  Payment Reference / Note (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Google Pay UTR: 4892749284"
+                  value={paymentNote}
+                  onChange={e => setPaymentNote(e.target.value)}
+                  className="input-field"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setPayingExpense(null)}
+                  style={{ flex: 1, padding: '10px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    if (onPayExpense) {
+                      await onPayExpense(payingExpense.id, { paymentMode, paymentNote });
+                    }
+                    setPayingExpense(null);
+                  }}
+                  style={{ flex: 1, padding: '10px', background: '#059669', borderColor: '#047857', fontWeight: 700 }}
+                >
+                  Confirm & Release Funds
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advance Cash Modal */}
+      {showAdvanceModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div style={{ background: '#ffffff', width: '100%', maxWidth: '480px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Send size={18} color="#059669" /> Send Advance Cash to Site Wallet
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                  Disburse advance petty cash directly to a Site Engineer's wallet.
+                </p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowAdvanceModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!advanceData.engineerEmail || !advanceData.amount || Number(advanceData.amount) <= 0) {
+                  alert('Please select an engineer and enter a valid amount.');
+                  return;
+                }
+                if (onSendWalletAdvance) {
+                  await onSendWalletAdvance({
+                    engineerEmail: advanceData.engineerEmail,
+                    engineerName: advanceData.engineerName,
+                    amount: Number(advanceData.amount),
+                    paymentMode: advanceData.paymentMode,
+                    notes: advanceData.notes
+                  });
+                }
+                setShowAdvanceModal(false);
+              }}
+              style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}
+            >
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                  Select Site Engineer *
+                </label>
+                {engineers && engineers.length > 0 ? (
+                  <select
+                    required
+                    value={advanceData.engineerEmail}
+                    onChange={e => {
+                      const selectedEng = engineers.find(eng => eng.email === e.target.value);
+                      setAdvanceData(prev => ({
+                        ...prev,
+                        engineerEmail: e.target.value,
+                        engineerName: selectedEng?.name || 'Site Engineer'
+                      }));
+                    }}
+                    className="input-field"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
+                  >
+                    <option value="">-- Choose Site Engineer --</option>
+                    {engineers.map(eng => (
+                      <option key={eng.id || eng.email} value={eng.email}>
+                        {eng.name} ({eng.email})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="email"
+                    required
+                    placeholder="Enter Engineer Email"
+                    value={advanceData.engineerEmail}
+                    onChange={e => setAdvanceData(prev => ({ ...prev, engineerEmail: e.target.value, engineerName: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                  />
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                  Advance Cash Amount (₹) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  placeholder="e.g. 10000"
+                  value={advanceData.amount}
+                  onChange={e => setAdvanceData(prev => ({ ...prev, amount: e.target.value }))}
+                  className="input-field"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                  Disbursement Mode
+                </label>
+                <select
+                  value={advanceData.paymentMode}
+                  onChange={e => setAdvanceData(prev => ({ ...prev, paymentMode: e.target.value }))}
+                  className="input-field"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
+                >
+                  <option value="UPI / Bank Transfer">UPI / Bank Transfer</option>
+                  <option value="Cash in Hand">Cash in Hand</option>
+                  <option value="Company Cheque">Company Cheque</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                  Transfer Note
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Advance petty cash for site operations"
+                  value={advanceData.notes}
+                  onChange={e => setAdvanceData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="input-field"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowAdvanceModal(false)}
+                  style={{ flex: 1, padding: '10px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: '10px', background: '#059669', borderColor: '#047857', fontWeight: 700 }}
+                >
+                  Disburse to Wallet
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

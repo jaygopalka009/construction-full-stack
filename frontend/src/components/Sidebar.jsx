@@ -21,7 +21,7 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
     { path: '/admin/dashboard', label: 'Dashboard', icon: Grid },
     { path: '/admin/projects', label: 'Projects & Sites', icon: Briefcase },
     { path: '/admin/engineers', label: 'Site Engineers', icon: Users },
-    { path: '/admin/expenses', label: 'Expenses', icon: DollarSign },
+    { path: '/admin/expenses', label: 'Expenses & Wallets', icon: DollarSign },
     { path: '/admin/reports', label: 'Daily Reports', icon: FileText }
   ];
 
@@ -29,6 +29,7 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
     { path: '/site/dashboard', label: 'Dashboard', icon: Grid },
     { path: '/site/projects', label: 'My Projects', icon: Briefcase, hasBadge: hasPendingProjects },
     { path: '/site/tasks', label: 'Tasks', icon: CheckSquare },
+    { path: '/site/expenses', label: 'Site Expenses & Wallet', icon: DollarSign },
     { path: '/site/workers', label: 'Site Labor', icon: Users, isLaborMenu: true },
     { path: '/site/site-progress', label: 'Site Progress', icon: TrendingUp },
     { path: '/site/reports', label: 'Daily Reports', icon: Clipboard }
