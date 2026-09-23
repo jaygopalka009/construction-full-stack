@@ -20,13 +20,23 @@ function updateCounts() {
   w.absent = w.list.filter(item => item.status === 'Absent').length;
 }
 
-// GET /api/workers - Fetch all site workers
+// GET /api/workers - Fetch all site workers (supports optional ?projectId= and ?status= filters)
 router.get('/', (req, res) => {
   const w = getWorkersData();
   updateCounts();
+  const { projectId, status } = req.query;
+  let workersList = w.list;
+
+  if (projectId) {
+    workersList = workersList.filter(item => item.projectId === projectId);
+  }
+  if (status) {
+    workersList = workersList.filter(item => item.status && item.status.toLowerCase() === status.toLowerCase());
+  }
+
   res.json({
     success: true,
-    workers: w.list,
+    workers: workersList,
     stats: {
       total: w.total,
       present: w.present,
