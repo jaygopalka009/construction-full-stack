@@ -83,11 +83,13 @@ export default function EquipmentManager({
   const maintenanceCount = equipment.filter(e => e.status === 'Maintenance').length;
   const utilizationRate = totalCount > 0 ? Math.round((operatingCount / totalCount) * 100) : 0;
 
-  const serviceDueCount = equipment.filter(e => {
-    const run = Number(e.runningHours) || 0;
-    const next = Number(e.nextServiceHours) || 0;
+  const isServiceDue = (e) => {
+    const run = Number(e?.runningHours) || 0;
+    const next = Number(e?.nextServiceHours) || 0;
     return next > 0 && (run >= next || (next - run) <= 50);
-  }).length;
+  };
+
+  const serviceDueCount = equipment.filter(isServiceDue).length;
 
   // Filtered Equipment List
   const filteredEquipment = equipment.filter(item => {
@@ -100,11 +102,7 @@ export default function EquipmentManager({
 
     const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
     const matchesProject = projectFilter === 'All' || (item.project && item.project === projectFilter);
-    const matchesServiceDue = !filterServiceDue || (
-      (Number(item.nextServiceHours) || 0) > 0 &&
-      ((Number(item.runningHours) || 0) >= (Number(item.nextServiceHours) || 0) ||
-       ((Number(item.nextServiceHours) || 0) - (Number(item.runningHours) || 0)) <= 50)
-    );
+    const matchesServiceDue = !filterServiceDue || isServiceDue(item);
 
     return matchesSearch && matchesStatus && matchesProject && matchesServiceDue;
   });
