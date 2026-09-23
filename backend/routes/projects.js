@@ -121,9 +121,14 @@ router.get('/', (req, res) => {
   res.json({ success: true, projects: db.projects });
 });
 
+// GET /api/projects/clients - Get all client profiles
+router.get('/clients', (req, res) => {
+  res.json({ success: true, clients: db.clients || [] });
+});
+
 // GET /api/projects/:id - Get project by ID
 router.get('/:id', (req, res) => {
-  const proj = db.projects.find(p => p.id === req.params.id);
+  const proj = db.projects.find(p => String(p.id) === String(req.params.id));
   if (!proj) return res.status(404).json({ success: false, message: 'Project not found' });
   if (proj.acceptedAt && (!proj.engineerInCharge || proj.engineerInCharge === 'Unassigned')) {
     proj.acceptedBy = proj.acceptedBy || getEngineerName();
@@ -137,10 +142,27 @@ router.get('/:id', (req, res) => {
   res.json({ success: true, project: proj });
 });
 
-// POST /api/projects - Create new project (Admin)
+// POST /api/projects - Create new project (Admin) with auto-increment counter ID (1, 2, 3...)
 router.post('/', (req, res) => {
   const { name, clientName, clientPhone, location, budget, type, engineerInCharge, specifications } = req.body;
-  const newId = `proj_${Date.now()}`;
+  const newId = typeof db.getNextProjectId === 'function' ? db.getNextProjectId() : String((db.projects?.length || 0) + 1);
+
+  // Store client profile in separate clients collection
+  if (clientName && clientName.trim()) {
+    if (!Array.isArray(db.clients)) db.clients = [];
+    const clientExists = db.clients.find(c => c.name.toLowerCase() === clientName.trim().toLowerCase());
+    if (!clientExists) {
+      db.clients.push({
+        id: `client_${Date.now()}`,
+        name: clientName.trim(),
+        phone: clientPhone || "",
+        address: location || "Ahmedabad, Gujarat",
+        projectId: newId,
+        createdAt: new Date().toISOString()
+      });
+    }
+  }
+
   const newProj = {
     id: newId,
     name,
@@ -164,7 +186,7 @@ router.post('/', (req, res) => {
 
   newProj.tasks = generateTasksForProject(newProj);
 
-  db.projects.unshift(newProj);
+  db.projects.push(newProj);
   db.save();
   res.status(201).json({ success: true, message: 'Project created & sent to Site Engineer for acceptance', project: newProj });
 });

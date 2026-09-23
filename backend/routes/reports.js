@@ -25,7 +25,7 @@ router.post('/dpr', (req, res) => {
   const { 
     projectId, projectName, engineerName, engineerPhone, date, weather, 
     laborCount, workDone, materialsUsed, remarks, progress, sitePhoto, photos,
-    materialCost, laborCost, totalCost, materialsBreakdown, laborBreakdown, laborDetails
+    materialCost, laborCost, machineryUsed, machineryCharge, totalCost, materialsBreakdown, laborBreakdown, laborDetails
   } = req.body;
 
   const photoList = Array.isArray(photos) && photos.length > 0 
@@ -34,7 +34,7 @@ router.post('/dpr', (req, res) => {
 
   const calculatedTotalCost = totalCost !== undefined && totalCost !== null 
     ? Number(totalCost) 
-    : ((Number(materialCost) || 0) + (Number(laborCost) || 0));
+    : ((Number(materialCost) || 0) + (Number(laborCost) || 0) + (Number(machineryCharge) || 0));
 
   const newDpr = {
     id: `dpr_${Date.now()}`,
@@ -48,6 +48,8 @@ router.post('/dpr', (req, res) => {
     laborCost: Number(laborCost) || 0,
     laborBreakdown: Array.isArray(laborBreakdown) ? laborBreakdown : (Array.isArray(laborDetails) ? laborDetails : []),
     materialCost: Number(materialCost) || 0,
+    machineryUsed: machineryUsed || "None",
+    machineryCharge: Number(machineryCharge) || 0,
     totalCost: calculatedTotalCost,
     materialsBreakdown: Array.isArray(materialsBreakdown) ? materialsBreakdown : [],
     workDone: workDone || "Site Work in Progress",

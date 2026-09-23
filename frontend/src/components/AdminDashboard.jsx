@@ -626,6 +626,9 @@ export default function AdminDashboard({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontWeight: 800 }}>
+                          Project #{p.id}
+                        </span>
                         <span className={`badge ${isPending ? 'badge-amber' : isCompleted ? 'badge-emerald' : 'badge-blue'}`}>
                           {isPending ? 'Incoming Booking (Pending Acceptance)' : isCompleted ? '100% Completed Site' : 'Ongoing Site Work'}
                         </span>
@@ -1381,11 +1384,11 @@ export default function AdminDashboard({
                           <IndianRupee size={15} color="#059669" /> Daily Site Operational Expense:
                         </span>
                         <span style={{ fontSize: '1rem', fontWeight: 900, color: '#059669', background: '#ecfdf5', padding: '3px 12px', borderRadius: '6px', border: '1.5px solid #a7f3d0' }}>
-                          Total Expense: ₹{Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0)))).toLocaleString('en-IN')}
+                          Total Expense: ₹{Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0) + Number(dpr.machineryCharge || 0)))).toLocaleString('en-IN')}
                         </span>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: dpr.machineryUsed && dpr.machineryUsed !== 'None' ? 'repeat(auto-fit, minmax(180px, 1fr))' : '1fr 1fr', gap: '10px' }}>
                         <div style={{ background: '#fffbeb', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fde68a' }}>
                           <div style={{ fontSize: '0.74rem', color: '#92400e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Package size={13} /> Material Cost:
@@ -1416,6 +1419,20 @@ export default function AdminDashboard({
                             )}
                           </div>
                         </div>
+
+                        {dpr.machineryUsed && dpr.machineryUsed !== 'None' && (
+                          <div style={{ background: '#f0f9ff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
+                            <div style={{ fontSize: '0.74rem', color: '#0369a1', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Briefcase size={13} /> Machinery Charge:
+                            </div>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0284c7', marginTop: '2px' }}>
+                              ₹{Number(dpr.machineryCharge || 0).toLocaleString('en-IN')}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#0369a1', marginTop: '3px' }}>
+                              {dpr.machineryUsed}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 

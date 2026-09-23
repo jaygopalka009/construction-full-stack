@@ -13,7 +13,9 @@ router.post('/login', (req, res) => {
     return res.status(400).json({ success: false, message: 'Please enter your email address' });
   }
 
-  const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  const adminAccount = (db.admins || []).find(a => a.email.toLowerCase() === email.toLowerCase());
+  const userAccount = (db.users || []).find(u => u.email.toLowerCase() === email.toLowerCase());
+  const user = adminAccount || userAccount;
 
   if (!user) {
     return res.status(401).json({ success: false, message: 'No account found with this email address' });
@@ -51,8 +53,9 @@ router.post('/register', (req, res) => {
   }
 
   // Email duplicate check: same email cannot register again
-  const existingUser = db.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-  if (existingUser) {
+  const inAdmins = (db.admins || []).some(a => a.email.toLowerCase() === email.trim().toLowerCase());
+  const inUsers = (db.users || []).some(u => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (inAdmins || inUsers) {
     return res.status(400).json({ success: false, message: 'This email address is already registered. Please use another email.' });
   }
 
@@ -101,7 +104,8 @@ router.post('/register', (req, res) => {
 
 // GET /api/auth/users
 router.get('/users', (req, res) => {
-  res.json({ success: true, users: db.users });
+  const combined = [...(db.admins || []), ...(db.users || [])];
+  res.json({ success: true, users: combined, admins: db.admins, engineers: db.users });
 });
 
 // GET /api/auth/engineers - Get list of all Site Engineers

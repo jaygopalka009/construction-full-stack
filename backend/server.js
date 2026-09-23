@@ -7,7 +7,6 @@ const projectRoutes = require('./routes/projects');
 const materialRoutes = require('./routes/materials');
 const reportRoutes = require('./routes/reports');
 const workerRoutes = require('./routes/workers');
-const equipmentRoutes = require('./routes/equipment');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,7 +28,6 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/workers', workerRoutes);
-app.use('/api/equipment', equipmentRoutes);
 
 const db = require('./database/db');
 
@@ -39,11 +37,12 @@ app.get('/api/health', (req, res) => {
     status: 'online',
     system: 'Construction ERP REST API',
     uptimeSeconds: Math.floor(process.uptime()),
-    database: db.isMongoConnected ? 'MongoDB Connected' : 'Local Fallback (data.json)',
+    database: db.isMongoConnected ? 'MongoDB Connected' : 'Local Fallback (in-memory)',
     mongoConnected: !!db.isMongoConnected,
     projectsCount: db.projects ? db.projects.length : 0,
     materialsCount: db.materials ? db.materials.length : 0,
-    equipmentCount: db.equipment ? db.equipment.length : 0,
+    clientsCount: db.clients ? db.clients.length : 0,
+    dprsCount: db.dprs ? db.dprs.length : 0,
     timestamp: new Date().toISOString()
   });
 });

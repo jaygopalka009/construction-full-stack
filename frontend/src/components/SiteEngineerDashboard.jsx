@@ -119,6 +119,22 @@ export default function SiteEngineerDashboard({
 
   const COMMON_MATERIALS = ALL_CATALOG_MATERIALS;
 
+  // Construction Machinery & Heavy Equipment Options for DPR
+  const MACHINERY_OPTIONS = [
+    'None',
+    'JCB 3DX Super Backhoe Loader',
+    'Potain Tower Crane',
+    'Schwing Stetter Transit Mixer',
+    'Hamm 311 Soil Compactor Roller',
+    'Tata Prima 2830.K Dumper Truck',
+    'Casagrande Hydraulic Piling Rig',
+    'Vögele Super 1800 Asphalt Paver',
+    'Putzmeister Concrete Boom Pump',
+    'Mini Excavator 3-Ton',
+    'Hydraulic Mobile Crane (25T)',
+    'Crawler Dozer'
+  ];
+
   // Standard construction workforce roles with their default daily wage rates (₹)
   const STANDARD_WORKER_ROLES = [
     { role: 'Mason', defaultWage: '800' },
@@ -490,6 +506,8 @@ export default function SiteEngineerDashboard({
 
   // DPR State for Site Engineer
   const [dprSubmitting, setDprSubmitting] = useState(false);
+  const [machineryUsed, setMachineryUsed] = useState('None');
+  const [machineryCharge, setMachineryCharge] = useState('');
 
   // Material Order Modal State
   const [showMatModal, setShowMatModal] = useState(false);
@@ -949,7 +967,8 @@ export default function SiteEngineerDashboard({
   const dprAutoMaterialCost = tasksWithEvidence.reduce((sum, t) => sum + (Number(t.materialCost) || 0), 0);
   const dprAutoLaborCost = tasksWithEvidence.reduce((sum, t) => sum + (Number(t.laborCost) || 0), 0);
   const dprAutoLaborCount = tasksWithEvidence.reduce((max, t) => Math.max(max, Number(t.laborCount) || 0), autoWorkersCount);
-  const dprAutoTotalCost = dprAutoMaterialCost + (dprAutoLaborCost > 0 ? dprAutoLaborCost : (autoWorkersCount * 500));
+  const dprAutoMachineryCharge = machineryUsed && machineryUsed !== 'None' ? (Number(machineryCharge) || 0) : 0;
+  const dprAutoTotalCost = dprAutoMaterialCost + (dprAutoLaborCost > 0 ? dprAutoLaborCost : (autoWorkersCount * 500)) + dprAutoMachineryCharge;
 
   const handleAutoSubmitDpr = async () => {
     if (!onSubmitDpr) return;
@@ -982,11 +1001,13 @@ export default function SiteEngineerDashboard({
         laborCost: dprAutoLaborCost > 0 ? dprAutoLaborCost : (autoWorkersCount * 500),
         laborBreakdown: taskLaborConsolidated,
         materialCost: dprAutoMaterialCost,
+        machineryUsed: machineryUsed || 'None',
+        machineryCharge: dprAutoMachineryCharge,
         totalCost: dprAutoTotalCost,
         materialsUsed: activeMaterialsUsed,
         materialsBreakdown: activeMaterialsBreakdown,
         materialDeductions: materialDeductions,
-        remarks: `Daily progress report auto-compiled from completed tasks: ${completedStages.length} of ${currentProjectTasks.length} tasks completed (${proj.progress || 0}%). Total Daily Site Cost: ₹${dprAutoTotalCost.toLocaleString('en-IN')}`,
+        remarks: `Daily progress report auto-compiled from completed tasks: ${completedStages.length} of ${currentProjectTasks.length} tasks completed (${proj.progress || 0}%). Total Daily Site Cost: ₹${dprAutoTotalCost.toLocaleString('en-IN')}${dprAutoMachineryCharge > 0 ? ` (Includes Machinery: ${machineryUsed} @ ₹${dprAutoMachineryCharge.toLocaleString('en-IN')})` : ''}`,
         progress: Number(proj.progress || 0),
         sitePhoto: allAvailablePhotos[0] || '',
         photos: allAvailablePhotos
@@ -3337,6 +3358,11 @@ export default function SiteEngineerDashboard({
                   <span style={{ color: '#1d4ed8', fontWeight: 600 }}>
                     Labor Wages: <strong>₹{(dprAutoLaborCost > 0 ? dprAutoLaborCost : (autoWorkersCount * 500)).toLocaleString('en-IN')}</strong> ({dprAutoLaborCount} Workers{taskLaborConsolidated.length > 0 ? `: ${taskLaborConsolidated.map(l => `${l.role}: ${l.count} @ ₹${l.dailyWage}`).join(', ')}` : ''})
                   </span>
+                  {dprAutoMachineryCharge > 0 && (
+                    <span style={{ color: '#0369a1', fontWeight: 600 }}>
+                      Machinery Charge: <strong>₹{dprAutoMachineryCharge.toLocaleString('en-IN')}</strong> ({machineryUsed})
+                    </span>
+                  )}
                 </div>
                 <div style={{ background: '#ecfdf5', color: '#059669', padding: '4px 12px', borderRadius: '6px', fontSize: '0.88rem', fontWeight: 800, border: '1px solid #a7f3d0' }}>
                   Total Daily Stage Cost: ₹{dprAutoTotalCost.toLocaleString('en-IN')}
@@ -3346,6 +3372,68 @@ export default function SiteEngineerDashboard({
               <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '10px', fontStyle: 'italic' }}>
                 Notice: Daily Report is auto-compiled and read-only. To modify materials, quantities, or photos, please click "Edit Details" on the task in the Tasks tab.
               </div>
+            </div>
+
+            {/* Machinery & Heavy Equipment Grid-Down Section (Integrated into DPR) */}
+            <div style={{ padding: '16px', background: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '22px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Briefcase size={16} color="#0284c7" /> Site Machinery & Equipment Deployed Today
+                  </span>
+                  <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '2px 0 0 0' }}>
+                    Select heavy machinery or equipment used on site and record its daily charge / rental cost.
+                  </p>
+                </div>
+                <span className="badge badge-blue" style={{ fontSize: '0.72rem' }}>
+                  Machinery & Daily Charge
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: machineryUsed !== 'None' ? '1fr 1fr' : '1fr', gap: '14px', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                    Select Machinery Deployed (Grid-Down Selection)
+                  </label>
+                  <select
+                    className="input-field"
+                    value={machineryUsed}
+                    onChange={(e) => {
+                      setMachineryUsed(e.target.value);
+                      if (e.target.value === 'None') setMachineryCharge('');
+                    }}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #94a3b8', background: '#ffffff', fontSize: '0.88rem', fontWeight: 600, color: '#0f172a' }}
+                  >
+                    {MACHINERY_OPTIONS.map((mOpt, mIdx) => (
+                      <option key={mIdx} value={mOpt}>{mOpt}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {machineryUsed !== 'None' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                      Daily Machinery Charge / Rent (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input-field"
+                      placeholder="e.g. 8500"
+                      value={machineryCharge}
+                      onChange={(e) => setMachineryCharge(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #94a3b8', background: '#ffffff', fontSize: '0.88rem', fontWeight: 600, color: '#0f172a' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {machineryUsed !== 'None' && (
+                <div style={{ marginTop: '10px', fontSize: '0.76rem', color: '#0284c7', background: '#e0f2fe', padding: '6px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Machinery selected: <strong>{machineryUsed}</strong></span>
+                  <span>Daily Charge added: <strong>₹{Number(machineryCharge || 0).toLocaleString('en-IN')}</strong></span>
+                </div>
+              )}
             </div>
 
             {/* Prominent Auto Submit Button */}
@@ -3411,7 +3499,7 @@ export default function SiteEngineerDashboard({
                     </div>
 
                     {/* Dedicated Expense Breakdown Field */}
-                    {(dpr.totalCost > 0 || dpr.materialCost > 0 || dpr.laborCost > 0) && (
+                    {(dpr.totalCost > 0 || dpr.materialCost > 0 || dpr.laborCost > 0 || dpr.machineryCharge > 0) && (
                       <div style={{ marginTop: '10px', background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem' }}>
                           <span style={{ color: '#b45309', fontWeight: 600 }}>
@@ -3420,10 +3508,21 @@ export default function SiteEngineerDashboard({
                           <span style={{ color: '#1d4ed8', fontWeight: 600 }}>
                             Labor Wages: ₹{Number(dpr.laborCost || 0).toLocaleString('en-IN')} ({dpr.laborCount || 0} Workers)
                           </span>
+                          {Number(dpr.machineryCharge || 0) > 0 && (
+                            <span style={{ color: '#0369a1', fontWeight: 600 }}>
+                              Machinery Charge: ₹{Number(dpr.machineryCharge).toLocaleString('en-IN')} ({dpr.machineryUsed || 'Equipment'})
+                            </span>
+                          )}
                         </div>
                         <div style={{ background: '#ecfdf5', color: '#059669', padding: '3px 10px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 800, border: '1px solid #a7f3d0' }}>
-                          Total Daily Site Cost: ₹{Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0)))).toLocaleString('en-IN')}
+                          Total Daily Site Cost: ₹{Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0) + Number(dpr.machineryCharge || 0)))).toLocaleString('en-IN')}
                         </div>
+                      </div>
+                    )}
+
+                    {dpr.machineryUsed && dpr.machineryUsed !== 'None' && !dpr.machineryCharge && (
+                      <div style={{ marginTop: '6px', fontSize: '0.75rem', color: '#0284c7' }}>
+                        <strong>Machinery Used:</strong> {dpr.machineryUsed}
                       </div>
                     )}
 
