@@ -33,7 +33,25 @@ function AppLogo({ size = 42 }) {
 export default function AuthPage({ onLoginSuccess }) {
   const navigate = useNavigate();
 
-  const [isLogin, setIsLogin] = useState(true); // true = Login, false = Register
+  const [isLogin, setIsLogin] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('mode') !== 'register';
+    } catch {
+      return true;
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'register') {
+        setIsLogin(false);
+      } else if (params.get('mode') === 'login') {
+        setIsLogin(true);
+      }
+    } catch {}
+  }, []);
   const [formData, setFormData] = useState({
     name: '',
     email: '',

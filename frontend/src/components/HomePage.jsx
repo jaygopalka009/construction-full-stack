@@ -106,23 +106,9 @@ export default function HomePage({ currentUser }) {
             <a href="#contact" style={{ color: '#334155', textDecoration: 'none', fontSize: '0.92rem', fontWeight: 600 }}>
               Contact Us
             </a>
-            <a href="tel:9876543210" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: '#d97706',
-              textDecoration: 'none',
-              fontSize: '0.88rem',
-              fontWeight: 700,
-              background: '#fef3c7',
-              padding: '6px 12px',
-              borderRadius: '20px'
-            }}>
-              <Phone size={14} /> +91 98765 43210
-            </a>
           </nav>
 
-          {/* Right Action Button */}
+          {/* Right Action Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             {currentUser ? (
               <button
@@ -144,21 +130,38 @@ export default function HomePage({ currentUser }) {
                 Dashboard <ArrowRight size={15} />
               </button>
             ) : (
-              <button
-                onClick={() => navigate('/login')}
-                style={{
-                  background: '#0f172a',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '9px 18px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '0.88rem',
-                  cursor: 'pointer'
-                }}
-              >
-                Login
-              </button>
+              <>
+                <button
+                  onClick={() => navigate('/login?mode=login')}
+                  style={{
+                    background: 'transparent',
+                    color: '#0f172a',
+                    border: '1px solid #cbd5e1',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => navigate('/login?mode=register')}
+                  style={{
+                    background: '#d97706',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Registration
+                </button>
+              </>
             )}
           </div>
         </div>
