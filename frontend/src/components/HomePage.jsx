@@ -200,7 +200,7 @@ export default function HomePage({ currentUser }) {
           background: '#f8fafc'
         }}>
           <img
-            src="/img/hero.png"
+            src="/img/construction-hero.jpg"
             alt="Construction Project Site"
             style={{
               width: '100%',
@@ -209,8 +209,7 @@ export default function HomePage({ currentUser }) {
               display: 'block'
             }}
             onError={(e) => {
-              // Fallback to roww house.png if hero.png has issue
-              e.currentTarget.src = '/img/roww house.png';
+              e.currentTarget.src = '/img/hero.png';
             }}
           />
         </div>
