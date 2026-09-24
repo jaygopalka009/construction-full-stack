@@ -151,135 +151,126 @@ export default function SiteEngineerDashboard({
     { role: 'Machine Operator', defaultWage: '900' }
   ];
 
-  // Task Material & Labor Consumption State for Evidence Submission
-  const [taskMaterials, setTaskMaterials] = useState([
-    { selectedOption: '', name: '', quantity: '', unit: 'Units', unitRate: '', cost: '' }
-  ]);
-  const [taskLaborRows, setTaskLaborRows] = useState([
-    { role: 'Mason', customRole: '', count: '', dailyWage: '800', cost: '' }
-  ]);
+  // Task Photo Evidence State (Photos only, compulsory)
+  const [taskRemarks, setTaskRemarks] = useState('');
+  const [taskMaterials, setTaskMaterials] = useState([]);
+  const [taskLaborRows, setTaskLaborRows] = useState([]);
   const [selectedWorkerIds, setSelectedWorkerIds] = useState([]);
   const [workerPickerOpen, setWorkerPickerOpen] = useState(false);
   const [pickerCategoryFilter, setPickerCategoryFilter] = useState('all');
   const [pickerSearchQuery, setPickerSearchQuery] = useState('');
-  const [taskDrafts, setTaskDrafts] = useState({});
 
-  // Auto-sync active task modal state into taskDrafts so closing modal or switching tabs never loses data
-  useEffect(() => {
-    if (!photoUploadTaskId) return;
-    setTaskDrafts(prev => ({
-      ...prev,
-      [photoUploadTaskId]: {
-        photoList,
-        taskMaterials,
-        selectedWorkerIds,
-        isEditMode,
-        isAddMoreMode
-      }
-    }));
-  }, [photoUploadTaskId, photoList, taskMaterials, selectedWorkerIds, isEditMode, isAddMoreMode]);
+  // Daily Report (DPR) Direct Operational Entry State
+  const [dprWorkDone, setDprWorkDone] = useState('');
+  const [dprMaterials, setDprMaterials] = useState([
+    { selectedOption: '', name: '', quantity: '', unit: 'Bags', unitRate: '', cost: '' }
+  ]);
+  const [dprPhotos, setDprPhotos] = useState([]);
+  const dprFileInputRef = useRef(null);
 
   const getCategoryWorkerCount = (roleName) => {
     if (!workers || !Array.isArray(workers)) return 0;
     return workers.filter(w => isWorkerInTrade(w.trade, roleName)).length;
   };
 
-  // Open Task Evidence Modal and initialize items
-  const openTaskPhotoModal = (taskId, isAddMore = false, isEdit = false) => {
+  // Open Task Evidence Modal (strictly photo upload, compulsory)
+  const openTaskPhotoModal = (taskId, isAddMore = false) => {
     setPhotoUploadTaskId(taskId);
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     const targetTask = (tasks || []).find(t => t.id === taskId);
-    const existingDraft = taskDrafts[taskId];
+    setIsAddMoreMode(isAddMore);
+    setIsEditMode(false);
 
-    // Priority 1: Restore any active draft the user was working on
-    if (existingDraft) {
-      setPhotoList(existingDraft.photoList || []);
-      setTaskMaterials(existingDraft.taskMaterials && existingDraft.taskMaterials.length > 0 ? existingDraft.taskMaterials : [
-        { selectedOption: '', name: '', quantity: '', unit: 'Units', unitRate: '', cost: '' }
-      ]);
-      const validDraftWorkerIds = (existingDraft.selectedWorkerIds || []).filter(id => {
-        const w = (workers || []).find(x => x.id === id);
-        return w && w.status !== 'Absent';
-      });
-      setSelectedWorkerIds(validDraftWorkerIds);
-      setIsAddMoreMode(existingDraft.isAddMoreMode !== undefined ? existingDraft.isAddMoreMode : isAddMore);
-      setIsEditMode(existingDraft.isEditMode !== undefined ? existingDraft.isEditMode : isEdit);
+    const existingPhotos = targetTask 
+      ? (Array.isArray(targetTask.photos) && targetTask.photos.length > 0 ? targetTask.photos : (targetTask.photo ? [targetTask.photo] : []))
+      : [];
+    setPhotoList(existingPhotos);
+    setTaskRemarks(targetTask?.remarks || '');
+  };
+
+  // DPR Material Handlers
+  const handleAddDprMaterial = () => {
+    setDprMaterials(prev => [
+      ...prev,
+      { selectedOption: '', name: '', quantity: '', unit: 'Bags', unitRate: '', cost: '' }
+    ]);
+  };
+
+  const handleRemoveDprMaterial = (idx) => {
+    setDprMaterials(prev => {
+      if (prev.length <= 1) {
+        return [{ selectedOption: '', name: '', quantity: '', unit: 'Bags', unitRate: '', cost: '' }];
+      }
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const handleDprMaterialSelect = (idx, selectedVal) => {
+    if (selectedVal === '__custom__') {
+      setDprMaterials(prev => prev.map((row, i) => i === idx ? {
+        ...row,
+        selectedOption: '__custom__',
+        name: '',
+        unit: 'Units',
+        unitRate: '',
+        cost: ''
+      } : row));
       return;
     }
 
-    setIsAddMoreMode(isAddMore);
-    setIsEditMode(isEdit);
-
-    // Priority 2: If editing or task already has materials / photos / workers:
-    if (targetTask && (isEdit || isAddMore || (Array.isArray(targetTask.materialsUsed) && targetTask.materialsUsed.length > 0) || (targetTask.photos && targetTask.photos.length > 0) || (Array.isArray(targetTask.selectedWorkerIds) && targetTask.selectedWorkerIds.length > 0))) {
-      // 1. Existing Photos
-      const existingPhotos = Array.isArray(targetTask.photos) && targetTask.photos.length > 0
-        ? targetTask.photos
-        : (targetTask.photo ? [targetTask.photo] : []);
-      setPhotoList(existingPhotos);
-
-      // 2. Existing Materials
-      if (Array.isArray(targetTask.materialsUsed) && targetTask.materialsUsed.length > 0) {
-        setTaskMaterials(targetTask.materialsUsed.map(m => {
-          const match = ALL_CATALOG_MATERIALS.find(c => c.name.toLowerCase() === (m.name || '').toLowerCase()) || COMMON_MATERIALS.find(c => c.name.toLowerCase() === (m.name || '').toLowerCase());
-          return {
-            selectedOption: match ? match.name : '__custom__',
-            name: m.name || '',
-            quantity: String(m.quantity || ''),
-            unit: m.unit || (match ? match.unit : 'Units'),
-            unitRate: String(m.unitCost || (match ? match.defaultCost : '')),
-            cost: String(m.totalCost || '')
-          };
-        }));
-      } else {
-        const firstItem = COMMON_MATERIALS[0];
-        setTaskMaterials([{
-          selectedOption: firstItem.name,
-          name: firstItem.name,
-          quantity: '',
-          unit: firstItem.unit,
-          unitRate: firstItem.defaultCost,
-          cost: ''
-        }]);
+    const match = ALL_CATALOG_MATERIALS.find(m => m.name === selectedVal) || COMMON_MATERIALS.find(m => m.name === selectedVal);
+    setDprMaterials(prev => prev.map((row, i) => {
+      if (i === idx) {
+        const qtyNum = Number(row.quantity) || 0;
+        const rateNum = match ? Number(match.defaultCost) : 0;
+        return {
+          ...row,
+          selectedOption: selectedVal,
+          name: match ? match.name : selectedVal,
+          unit: match ? match.unit : row.unit,
+          unitRate: match ? String(match.defaultCost) : row.unitRate,
+          cost: qtyNum > 0 && rateNum > 0 ? String(qtyNum * rateNum) : row.cost
+        };
       }
+      return row;
+    }));
+  };
 
-      // 3. Existing Labor (support individual workers selection, strictly excluding Absent workers)
-      if (Array.isArray(targetTask.selectedWorkerIds) && targetTask.selectedWorkerIds.length > 0) {
-        const validIds = targetTask.selectedWorkerIds.filter(id => {
-          const w = (workers || []).find(x => x.id === id);
-          return w && w.status !== 'Absent';
-        });
-        setSelectedWorkerIds(validIds);
-      } else if (Array.isArray(targetTask.laborDetails) && targetTask.laborDetails.length > 0) {
-        const matched = [];
-        targetTask.laborDetails.forEach(l => {
-          if (Array.isArray(l.workerNames)) {
-            l.workerNames.forEach(wn => {
-              const f = (workers || []).find(w => w.name.toLowerCase() === wn.toLowerCase() && w.status !== 'Absent');
-              if (f && !matched.includes(f.id)) matched.push(f.id);
-            });
+  const handleDprMaterialFieldChange = (idx, field, val) => {
+    setDprMaterials(prev => prev.map((row, i) => {
+      if (i === idx) {
+        const updated = { ...row, [field]: val };
+        if (field === 'quantity' || field === 'unitRate') {
+          const q = Number(field === 'quantity' ? val : row.quantity) || 0;
+          const r = Number(field === 'unitRate' ? val : row.unitRate) || 0;
+          if (q > 0 && r > 0) {
+            updated.cost = String(Math.round(q * r));
           }
-        });
-        setSelectedWorkerIds(matched.length > 0 ? matched : (workers || []).filter(w => w.status === 'Present').map(w => w.id));
-      } else {
-        setSelectedWorkerIds([]);
-      }
-    } else {
-      // Clean blank submission
-      setPhotoList([]);
-      setTaskMaterials([
-        {
-          selectedOption: '',
-          name: '',
-          quantity: '',
-          unit: 'Units',
-          unitRate: '',
-          cost: ''
         }
-      ]);
-      setSelectedWorkerIds([]);
+        return updated;
+      }
+      return row;
+    }));
+  };
+
+  const handleDprPhotoSelect = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      try {
+        const compressedList = await Promise.all(files.map(f => compressImage(f)));
+        const validList = compressedList.filter(Boolean);
+        setDprPhotos(prev => [...prev, ...validList]);
+      } catch (err) {
+        console.error('Error compressing DPR photos:', err);
+      }
     }
+    if (e.target) e.target.value = '';
+  };
+
+  const handleSelectAllPresentWorkersForDpr = () => {
+    const presentIds = (workers || []).filter(w => w.status === 'Present').map(w => w.id);
+    setSelectedWorkerIds(presentIds);
   };
 
   const handleAddMaterialRow = () => {
@@ -506,17 +497,56 @@ export default function SiteEngineerDashboard({
   const taskTotalExpense = taskTotalMaterialCost + taskTotalLaborCost;
   const validMaterialsCount = taskMaterials.filter(m => (m.name && m.name.trim()) && Number(m.quantity) > 0).length;
 
-  // DPR State for Site Engineer
+  // Helper calculation for currency multiplier (Cr, Lakh, Hajar/Thousand, Hundred, Rupees)
+  const calculateAmountInRupees = (val, unit) => {
+    const num = parseFloat(val) || 0;
+    if (unit === 'Cr') return Math.round(num * 10000000);
+    if (unit === 'Lakh') return Math.round(num * 100000);
+    if (unit === 'Thousand' || unit === 'Hajar') return Math.round(num * 1000);
+    if (unit === 'Hundred') return Math.round(num * 100);
+    return Math.round(num);
+  };
+
+  // DPR State for Site Engineer (support adding multiple machines with units)
   const [dprSubmitting, setDprSubmitting] = useState(false);
-  const [machineryUsed, setMachineryUsed] = useState('None');
-  const [machineryCharge, setMachineryCharge] = useState('');
+  const [dprDetailsOpen, setDprDetailsOpen] = useState(false);
+  const [expandedSubmittedReports, setExpandedSubmittedReports] = useState({});
+  const [machineryList, setMachineryList] = useState([
+    { name: '', chargeVal: '', chargeUnit: 'Rupees', charge: 0 }
+  ]);
+
+  const handleAddMachineryRow = () => {
+    setMachineryList(prev => [...prev, { name: '', chargeVal: '', chargeUnit: 'Rupees', charge: 0 }]);
+  };
+
+  const handleUpdateMachineryRow = (index, field, value) => {
+    setMachineryList(prev => {
+      const updated = [...prev];
+      const cur = { ...updated[index], [field]: value };
+      const val = field === 'chargeVal' ? value : cur.chargeVal;
+      const unit = field === 'chargeUnit' ? value : (cur.chargeUnit || 'Rupees');
+      cur.charge = calculateAmountInRupees(val, unit);
+      updated[index] = cur;
+      return updated;
+    });
+  };
+
+  const handleRemoveMachineryRow = (index) => {
+    setMachineryList(prev => {
+      if (prev.length <= 1) {
+        return [{ name: '', chargeVal: '', chargeUnit: 'Rupees', charge: 0 }];
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   // Site Wallet & Expenses State
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const [expenseForm, setExpenseForm] = useState({
     title: '',
-    amount: '',
+    amountVal: '',
+    amountUnit: 'Rupees', // 'Rupees', 'Hundred', 'Hajar', 'Lakh', 'Cr'
     category: 'Fuel / Diesel',
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -551,7 +581,8 @@ export default function SiteEngineerDashboard({
 
   const handleSubmitExpenseClaim = async (e) => {
     e.preventDefault();
-    if (!expenseForm.title || !expenseForm.amount || Number(expenseForm.amount) <= 0) {
+    const totalRupees = calculateAmountInRupees(expenseForm.amountVal, expenseForm.amountUnit);
+    if (!expenseForm.title || totalRupees <= 0) {
       alert('Please enter a valid expense title and amount.');
       return;
     }
@@ -565,7 +596,7 @@ export default function SiteEngineerDashboard({
           engineerEmail: currentUser?.email || '',
           title: expenseForm.title.trim(),
           category: expenseForm.category,
-          amount: Number(expenseForm.amount),
+          amount: totalRupees,
           date: expenseForm.date,
           description: expenseForm.description,
           receiptPhoto: expenseForm.receiptPhoto
@@ -574,7 +605,8 @@ export default function SiteEngineerDashboard({
       setShowExpenseModal(false);
       setExpenseForm({
         title: '',
-        amount: '',
+        amountVal: '',
+        amountUnit: 'Rupees',
         category: 'Fuel / Diesel',
         date: new Date().toISOString().split('T')[0],
         description: '',
@@ -616,6 +648,42 @@ export default function SiteEngineerDashboard({
     minThreshold: '20'
   });
 
+  //get machinery list from backend
+  const [dbMachinery , setDbMachinery] = useState([]);
+  const [customeMachinaryName, setCustomeMachinaryName] = useState('');
+
+  const fetchMachineryList = async () => {
+    try {
+      const response = await fetch('/api/machinery');
+      const res = await response.json();
+      if (res.success && Array.isArray(res.machinery)) {
+        setDbMachinery(res.machinery);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAddMachinerytoDb = async (e) => {
+    e.preventDefault();
+    if (!customeMachinaryName.trim()) return;
+    const res = await fetch('/api/machinery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: customeMachinaryName.trim() })
+    }).then(r => r.json());
+    if (res.success) {
+      alert(`Machinery "${customeMachinaryName}" saved to Database!`);
+      setCustomeMachinaryName('');
+      fetchMachineryList();
+    }
+  };
+
+  useEffect(() => {
+    fetchMachineryList();
+  }, []);
+
+  
   // Calculated Stats
   const workerList = (workers && Array.isArray(workers)) ? workers : [];
   const presentCount = workerList.filter(w => w.status === 'Present').length;
@@ -844,6 +912,10 @@ export default function SiteEngineerDashboard({
 
   const handlePhotoSubmit = (taskId) => {
     if (isAddMoreMode) {
+      if (!photoList || photoList.length === 0) {
+        alert('Please attach at least 1 site photo.');
+        return;
+      }
       onAddMoreTaskPhotos && onAddMoreTaskPhotos(taskId, photoList);
       setPhotoUploadTaskId(null);
       setPhotoList([]);
@@ -852,66 +924,22 @@ export default function SiteEngineerDashboard({
       return;
     }
 
-    // Filter and format materials used
-    const compiledMaterials = taskMaterials
-      .filter(m => (m.name && m.name.trim() !== '') && Number(m.quantity) > 0)
-      .map(m => {
-        const qty = Number(m.quantity) || 0;
-        const rate = Number(m.unitRate) || 0;
-        const lineCost = (m.cost !== '' && !isNaN(Number(m.cost))) ? Number(m.cost) : (qty * rate);
-        return {
-          name: m.name.trim(),
-          quantity: qty,
-          unit: m.unit || 'Units',
-          unitCost: rate,
-          totalCost: lineCost
-        };
-      });
-
-    const totalMatCost = compiledMaterials.reduce((sum, item) => sum + item.totalCost, 0);
-
-    // Group selected workers by trade and wage
-    const compiledLabor = (() => {
-      const map = {};
-      selectedWorkersList.forEach(w => {
-        const trade = w.trade || 'Helper / General Labor';
-        const wage = Number(w.dailyWage) || 500;
-        const key = `${trade}_${wage}`;
-        if (!map[key]) {
-          map[key] = {
-            role: trade,
-            count: 0,
-            dailyWage: wage,
-            totalCost: 0,
-            workerNames: []
-          };
-        }
-        map[key].count += 1;
-        map[key].totalCost += wage;
-        map[key].workerNames.push(w.name);
-      });
-      return Object.values(map);
-    })();
-
-    const totalLabCount = selectedWorkersList.length;
-    const totalLabCost = selectedWorkersLaborCost;
-    const totalExp = totalMatCost + totalLabCost;
-    const summaryText = compiledMaterials.length > 0
-      ? compiledMaterials.map(m => `${m.name}: ${m.quantity} ${m.unit} (₹${m.totalCost.toLocaleString('en-IN')})`).join(', ')
-      : 'No materials consumed';
+    // Photo is strictly compulsory for task submission
+    if (!photoList || photoList.length === 0) {
+      alert('Photo upload is compulsory for task submission! Please select at least 1 site photo.');
+      return;
+    }
 
     const consumptionData = {
-      materialsUsed: compiledMaterials,
-      materialCost: totalMatCost,
-      laborCount: totalLabCount,
-      laborCost: totalLabCost,
-      laborDetails: compiledLabor,
-      selectedWorkerIds: selectedWorkerIds.filter(id => {
-        const w = (workers || []).find(x => x.id === id);
-        return w && w.status !== 'Absent';
-      }),
-      totalCost: totalExp,
-      materialsSummary: summaryText
+      remarks: taskRemarks || '',
+      materialsUsed: [],
+      materialCost: 0,
+      laborCount: 0,
+      laborCost: 0,
+      laborDetails: [],
+      selectedWorkerIds: [],
+      totalCost: 0,
+      materialsSummary: ''
     };
 
     onSubmitTaskForApproval && onSubmitTaskForApproval(taskId, photoList[0] || '', photoList, consumptionData);
@@ -922,6 +950,7 @@ export default function SiteEngineerDashboard({
     });
     setPhotoUploadTaskId(null);
     setPhotoList([]);
+    setTaskRemarks('');
     setIsAddMoreMode(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -1040,30 +1069,83 @@ export default function SiteEngineerDashboard({
     return Object.values(map);
   })();
 
-  const dprAutoMaterialCost = tasksWithEvidence.reduce((sum, t) => sum + (Number(t.materialCost) || 0), 0);
-  const dprAutoLaborCost = tasksWithEvidence.reduce((sum, t) => sum + (Number(t.laborCost) || 0), 0);
-  const dprAutoLaborCount = tasksWithEvidence.reduce((max, t) => Math.max(max, Number(t.laborCount) || 0), autoWorkersCount);
-  const dprAutoMachineryCharge = machineryUsed && machineryUsed !== 'None' ? (Number(machineryCharge) || 0) : 0;
-  const dprAutoTotalCost = dprAutoMaterialCost + (dprAutoLaborCost > 0 ? dprAutoLaborCost : (autoWorkersCount * 500)) + dprAutoMachineryCharge;
+  const activeDprMaterials = (dprMaterials || [])
+    .filter(m => (m.name && m.name.trim() !== '') && Number(m.quantity) > 0)
+    .map(m => {
+      const qty = Number(m.quantity) || 0;
+      const rate = Number(m.unitRate) || 0;
+      const lineCost = (m.cost !== '' && !isNaN(Number(m.cost))) ? Number(m.cost) : (qty * rate);
+      return {
+        name: m.name.trim(),
+        quantity: qty,
+        unit: m.unit || 'Units',
+        unitRate: rate,
+        totalCost: lineCost
+      };
+    });
+
+  const dprTotalMaterialCost = activeDprMaterials.reduce((sum, item) => sum + item.totalCost, 0);
+  const dprTotalLaborCost = selectedWorkersLaborCost;
+  const dprTotalLaborCount = selectedWorkersList.length;
+
+  const dprLaborBreakdown = (() => {
+    const map = {};
+    selectedWorkersList.forEach(w => {
+      const trade = w.trade || 'Helper / General Labor';
+      const wage = Number(w.dailyWage) || 500;
+      const key = `${trade}_${wage}`;
+      if (!map[key]) {
+        map[key] = {
+          role: trade,
+          count: 0,
+          dailyWage: wage,
+          totalCost: 0,
+          workerNames: []
+        };
+      }
+      map[key].count += 1;
+      map[key].totalCost += wage;
+      map[key].workerNames.push(w.name);
+    });
+    return Object.values(map);
+  })();
+
+  const validMachineries = (machineryList || []).filter(m => m.name && m.name !== 'None' && m.name.trim() !== '');
+  const dprMachineryCharge = validMachineries.reduce((sum, m) => sum + (Number(m.charge) || 0), 0);
+  const machineryUsedSummary = validMachineries.length > 0
+    ? validMachineries.map(m => `${m.name}${Number(m.charge) > 0 ? ` (₹${Number(m.charge).toLocaleString('en-IN')})` : ''}`).join(', ')
+    : 'None';
+  const machineryUsed = machineryUsedSummary;
+
+  const dprTotalDailyCost = dprTotalMaterialCost + dprTotalLaborCost + dprMachineryCharge;
+
+  // Convenience aliases for existing references
+  const dprAutoMaterialCost = dprTotalMaterialCost;
+  const dprAutoLaborCost = dprTotalLaborCost;
+  const dprAutoLaborCount = dprTotalLaborCount;
+  const dprAutoMachineryCharge = dprMachineryCharge;
+  const dprAutoTotalCost = dprTotalDailyCost;
 
   const handleAutoSubmitDpr = async () => {
     if (!onSubmitDpr) return;
     setDprSubmitting(true);
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const activeMaterialsUsed = taskMaterialsConsolidated.length > 0
-      ? taskMaterialsConsolidated.map(m => `${m.name}: ${m.quantity} ${m.unit} (₹${m.totalCost.toLocaleString('en-IN')})`).join(', ')
-      : 'Standard Construction Materials';
+    const activeMaterialsUsedSummary = activeDprMaterials.length > 0
+      ? activeDprMaterials.map(m => `${m.name}: ${m.quantity} ${m.unit} (₹${m.totalCost.toLocaleString('en-IN')})`).join(', ')
+      : 'None';
 
-    const materialDeductions = taskMaterialsConsolidated
+    const materialDeductions = activeDprMaterials
       .map(m => ({ name: m.name, quantity: Number(m.quantity) }));
 
-    const activeMaterialsBreakdown = taskMaterialsConsolidated.map(m => ({
+    const activeMaterialsBreakdown = activeDprMaterials.map(m => ({
       name: m.name,
       quantity: m.quantity,
       unit: m.unit,
       totalCost: m.totalCost
     }));
+
+    const reportPhotos = dprPhotos || [];
 
     try {
       await onSubmitDpr({
@@ -1072,22 +1154,29 @@ export default function SiteEngineerDashboard({
         engineerName: proj.acceptedBy || proj.engineerInCharge || currentUser?.name || 'Site Engineer',
         engineerPhone: proj.clientPhone || proj.contactPhone || '+91 98765 43210',
         date: todayStr,
-        workDone: autoWorkDoneSummary,
-        laborCount: dprAutoLaborCount,
-        laborCost: dprAutoLaborCost > 0 ? dprAutoLaborCost : (autoWorkersCount * 500),
-        laborBreakdown: taskLaborConsolidated,
-        materialCost: dprAutoMaterialCost,
-        machineryUsed: machineryUsed || 'None',
-        machineryCharge: dprAutoMachineryCharge,
-        totalCost: dprAutoTotalCost,
-        materialsUsed: activeMaterialsUsed,
+        workDone: (dprWorkDone && dprWorkDone.trim() !== '') ? dprWorkDone.trim() : (autoWorkDoneSummary || 'Site construction operations and daily work.'),
+        laborCount: dprTotalLaborCount,
+        laborCost: dprTotalLaborCost,
+        laborBreakdown: dprLaborBreakdown,
+        materialCost: dprTotalMaterialCost,
+        machineryUsed: machineryUsedSummary,
+        machineryCharge: dprMachineryCharge,
+        machineryBreakdown: validMachineries.map(m => ({ name: m.name, charge: Number(m.charge) || 0 })),
+        totalCost: dprTotalDailyCost,
+        materialsUsed: activeMaterialsUsedSummary,
         materialsBreakdown: activeMaterialsBreakdown,
         materialDeductions: materialDeductions,
-        remarks: `Daily progress report auto-compiled from completed tasks: ${completedStages.length} of ${currentProjectTasks.length} tasks completed (${proj.progress || 0}%). Total Daily Site Cost: ₹${dprAutoTotalCost.toLocaleString('en-IN')}${dprAutoMachineryCharge > 0 ? ` (Includes Machinery: ${machineryUsed} @ ₹${dprAutoMachineryCharge.toLocaleString('en-IN')})` : ''}`,
+        remarks: `Daily Progress Report submitted. Total Daily Cost: ₹${dprTotalDailyCost.toLocaleString('en-IN')}${dprMachineryCharge > 0 ? ` (Machinery: ₹${dprMachineryCharge.toLocaleString('en-IN')})` : ''}`,
         progress: Number(proj.progress || 0),
-        sitePhoto: allAvailablePhotos[0] || '',
-        photos: allAvailablePhotos
+        sitePhoto: reportPhotos[0] || '',
+        photos: reportPhotos
       });
+
+      // Clear inputs
+      setDprMaterials([{ selectedOption: '', name: '', quantity: '', unit: 'Bags', unitRate: '', cost: '' }]);
+      setSelectedWorkerIds([]);
+      setDprPhotos([]);
+      setDprWorkDone('');
     } finally {
       setDprSubmitting(false);
     }
@@ -1660,22 +1749,6 @@ export default function SiteEngineerDashboard({
                         {cfg.icon} {cfg.label}
                       </span>
 
-                      {/* Small Cost Tag */}
-                      {task.totalCost > 0 && (
-                        <span style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          color: '#059669',
-                          background: '#ecfdf5',
-                          border: '1px solid #a7f3d0',
-                          padding: '3px 8px',
-                          borderRadius: '5px',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          ₹{Number(task.totalCost).toLocaleString('en-IN')}
-                        </span>
-                      )}
-
                       {/* Action buttons */}
                       {task.status === 'Pending' ? (
                         <button
@@ -1701,35 +1774,13 @@ export default function SiteEngineerDashboard({
                             fontWeight: 600,
                             borderRadius: '5px'
                           }}
-                          onClick={() => openTaskPhotoModal(task.id, false, true)}
-                          title="Edit stage details, materials or photos"
+                          onClick={() => openTaskPhotoModal(task.id, true, true)}
+                          title="View or add stage photos"
                         >
-                          <Edit3 size={11} color="#2563eb" /> Edit Details
+                          <Camera size={11} color="#2563eb" /> View Photos
                         </button>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {(hasPhotos || (Array.isArray(task.materialsUsed) && task.materialsUsed.length > 0)) && (
-                            <button
-                              type="button"
-                              className="btn btn-sm"
-                              style={{
-                                fontSize: '0.72rem',
-                                padding: '3px 8px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                background: '#ffffff',
-                                color: '#0f172a',
-                                border: '1px solid #cbd5e1',
-                                fontWeight: 600,
-                                borderRadius: '5px'
-                              }}
-                              onClick={() => openTaskPhotoModal(task.id, false, true)}
-                              title="Edit materials or evidence"
-                            >
-                              <Edit3 size={11} color="#2563eb" /> Edit
-                            </button>
-                          )}
                           <button
                             type="button"
                             className="btn btn-sm btn-primary"
@@ -1745,7 +1796,7 @@ export default function SiteEngineerDashboard({
                             }}
                             onClick={() => openTaskPhotoModal(task.id, hasPhotos, hasPhotos)}
                           >
-                            <Camera size={11} /> {hasPhotos ? '+ Photos' : (task.status === 'Rejected' ? 'Re-upload' : 'Upload')}
+                            <Camera size={11} /> {hasPhotos ? '+ Photos' : (task.status === 'Rejected' ? 'Re-upload Photo' : 'Upload Photo')}
                           </button>
                         </div>
                       )}
@@ -1846,41 +1897,6 @@ export default function SiteEngineerDashboard({
                         </div>
                       )}
 
-                      {/* Small, Clean Expense Breakdown */}
-                      {(task.totalCost > 0 || (Array.isArray(task.materialsUsed) && task.materialsUsed.length > 0)) && (
-                        <div style={{ background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.74rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <span style={{ fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Package size={12} color="#d97706" /> Expense Breakdown:
-                            </span>
-                            <span style={{ fontWeight: 800, color: '#059669' }}>
-                              Total Cost: ₹{Number(task.totalCost || 0).toLocaleString('en-IN')}
-                            </span>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <div style={{ background: '#fffbeb', padding: '4px 8px', borderRadius: '4px', border: '1px solid #fde68a', flex: 1, minWidth: '160px' }}>
-                              <div style={{ fontWeight: 700, color: '#b45309', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <Package size={11} /> Material: ₹{Number(task.materialCost || 0).toLocaleString('en-IN')}
-                              </div>
-                              <div style={{ fontSize: '0.7rem', color: '#92400e', marginTop: '2px' }}>
-                                {task.materialsSummary || (task.materialsUsed && task.materialsUsed.map(m => `${m.name}: ${m.quantity} ${m.unit}`).join(', ')) || 'No materials consumed'}
-                              </div>
-                            </div>
-
-                            <div style={{ background: '#eff6ff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #bfdbfe', flex: 1, minWidth: '160px' }}>
-                              <div style={{ fontWeight: 700, color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <Users size={11} /> Labor Wages: ₹{Number(task.laborCost || 0).toLocaleString('en-IN')}
-                              </div>
-                              <div style={{ fontSize: '0.7rem', color: '#1e40af', marginTop: '2px' }}>
-                                {Array.isArray(task.laborDetails) && task.laborDetails.length > 0
-                                  ? task.laborDetails.map(l => `${l.role}: ${l.count} @ ₹${l.dailyWage}`).join(' | ')
-                                  : `${task.laborCount || 0} Workers on site`}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
                       {/* Status Info / Remarks */}
                       {task.status === 'Completed' && (
@@ -1930,25 +1946,25 @@ export default function SiteEngineerDashboard({
         </div>
       )}
 
-      {/* Task Evidence, Material Consumption & Labor Wages Modal */}
+      {/* Small, Simple Task Evidence Modal (Compulsory Photo Upload) */}
       {photoUploadTaskId && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)',
+          background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(5px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '16px'
         }}>
-          <div className="glass-card" style={{ padding: '24px', width: '100%', maxWidth: '680px', maxHeight: '92vh', overflowY: 'auto', background: '#ffffff', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.35)' }}>
+          <div style={{ padding: '20px', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: '#ffffff', borderRadius: '14px', boxShadow: '0 20px 40px -10px rgba(15, 23, 42, 0.35)', border: '1px solid #e2e8f0' }}>
             
             {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '14px' }}>
               <div>
-                <h3 style={{ margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.15rem', fontWeight: 800 }}>
-                  <Camera size={22} color="#2563eb" /> {isEditMode ? 'Edit Task Evidence, Materials & Worker Wages' : (isAddMoreMode ? 'Attach Additional Photo Evidence' : 'Submit Task Evidence, Materials & Worker Wages')}
+                <h3 style={{ margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem', fontWeight: 800 }}>
+                  <Camera size={18} color="#2563eb" /> {isAddMoreMode ? 'Add More Task Photos' : 'Upload Task Photo Evidence'}
                 </h3>
-                <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '4px 0 0 0' }}>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '4px 0 0 0' }}>
                   {(() => {
                     const activeUploadTask = (tasks || []).find(t => t.id === photoUploadTaskId);
-                    return activeUploadTask ? `${activeUploadTask.name} (${activeUploadTask.dueDate} • ${activeUploadTask.project})` : 'Record site progress & expenses';
+                    return activeUploadTask ? `${activeUploadTask.name} (${activeUploadTask.project})` : 'Attach site photo evidence';
                   })()}
                 </p>
               </div>
@@ -1983,7 +1999,7 @@ export default function SiteEngineerDashboard({
             {/* SECTION 1: PHOTO EVIDENCE (Mandatory) */}
             <div style={{ marginBottom: '18px', background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
               <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>1. Attach Photo Evidence from Site Camera / Gallery <span style={{ color: '#dc2626' }}>*</span></span>
+                <span>Site Photos <span style={{ color: '#dc2626' }}>* (Compulsory)</span></span>
                 <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 400 }}>Multiple photos allowed</span>
               </label>
               <input
@@ -2027,352 +2043,53 @@ export default function SiteEngineerDashboard({
                   </div>
                 </div>
               ) : (
-                <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#94a3b8' }}>
-                  No photos selected yet.
-                </div>
+                <div style={{ marginTop: '8px', fontSize: '0.74rem', color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><AlertCircle size={13} /> Please attach at least 1 site photo to complete this task.</div>
               )}
             </div>
 
-            {/* If Not AddMoreMode, show Material Consumption & Labor Details */}
-            {!isAddMoreMode && (
-              <>
-                {/* SECTION 2: MATERIALS USED */}
-                <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Package size={16} color="#2563eb" />
-                      <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>
-                        2. Materials Used (Optional)
-                      </strong>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 12px 0' }}>
-                    Select materials only if consumed in this task stage. Leave empty if no materials were used.
-                  </p>
-
-                  {/* Material Rows */}
-                  {taskMaterials.map((row, idx) => {
-                    return (
-                      <div key={idx} style={{ marginBottom: '10px', background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                          {/* Material Dropdown */}
-                          <div style={{ flex: 2, minWidth: '190px' }}>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px', display: 'block' }}>
-                              Select Material:
-                            </label>
-                            <select
-                              className="form-control"
-                              value={row.selectedOption}
-                              onChange={(e) => handleMaterialChange(idx, e.target.value)}
-                              style={{ padding: '7px 10px', fontSize: '0.8rem', fontWeight: 600 }}
-                            >
-                              <option value="">-- Select Material from Construction Catalog --</option>
-                              {Object.entries(CONSTRUCTION_MATERIAL_CATALOG).map(([catKey, catObj]) => (
-                                <optgroup key={catKey} label={catObj.label}>
-                                  {catObj.items.map(mat => (
-                                    <option key={mat.name} value={mat.name}>
-                                      {mat.name} ({mat.defaultUnit})
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              ))}
-                              <optgroup label="Other / Custom">
-                                <option value="__custom__">+ Custom / Other Material (Type Specification)</option>
-                              </optgroup>
-                            </select>
-
-                            {row.selectedOption === '__custom__' && (
-                              <input
-                                type="text"
-                                placeholder="Enter custom material name"
-                                value={row.name}
-                                onChange={(e) => handleCustomNameChange(idx, e.target.value)}
-                                className="form-control"
-                                style={{ marginTop: '6px', padding: '6px 8px', fontSize: '0.8rem' }}
-                              />
-                            )}
-                          </div>
-
-                          {/* Quantity Used Input */}
-                          <div style={{ width: '110px' }}>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px', display: 'block' }}>
-                              Quantity:
-                            </label>
-                            <input
-                              type="number"
-                              min="0.01"
-                              step="any"
-                              placeholder="0"
-                              value={row.quantity}
-                              onChange={(e) => handleQuantityChange(idx, e.target.value)}
-                              className="form-control"
-                              style={{ padding: '7px 8px', fontSize: '0.82rem', fontWeight: 700 }}
-                            />
-                          </div>
-
-                          {/* Unit */}
-                          <div style={{ width: '85px' }}>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px', display: 'block' }}>
-                              Unit:
-                            </label>
-                            <input
-                              type="text"
-                              value={row.unit}
-                              onChange={(e) => handleUnitChange(idx, e.target.value)}
-                              className="form-control"
-                              style={{ padding: '7px 8px', fontSize: '0.8rem' }}
-                              placeholder="Bags"
-                            />
-                          </div>
-
-                          {/* Item Cost */}
-                          <div style={{ width: '130px' }}>
-                            <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px', display: 'block' }}>
-                              Item Cost (₹):
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              placeholder="0"
-                              value={row.cost}
-                              onChange={(e) => handleItemCostChange(idx, e.target.value)}
-                              className="form-control"
-                              style={{ padding: '7px 8px', fontSize: '0.82rem', fontWeight: 700, color: '#059669' }}
-                            />
-                          </div>
-
-                          {/* Remove Button */}
-                          {taskMaterials.length > 1 && (
-                            <div style={{ paddingTop: '20px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveMaterialRow(idx)}
-                                style={{ border: 'none', background: '#fee2e2', color: '#dc2626', borderRadius: '6px', padding: '7px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                title="Remove item"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-                    <button
-                      type="button"
-                      onClick={handleAddMaterialRow}
-                      className="btn btn-sm btn-secondary"
-                      style={{ fontSize: '0.75rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#ffffff', borderColor: '#cbd5e1' }}
-                    >
-                      <Plus size={13} /> Add Another Material
-                    </button>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
-                      Material Subtotal: <span style={{ color: '#059669' }}>₹{taskTotalMaterialCost.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* SECTION 3: WORKERS & LABOR SELECTION (Select Workers Modal & Auto Cost Calculation) */}
-                <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Users size={17} color="#2563eb" />
-                      <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>
-                        3. Labor & Workers Used in Task (Optional)
-                      </strong>
-                    </div>
-
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setWorkerPickerOpen(true)}
-                        className="btn btn-sm btn-primary"
-                        style={{ fontSize: '0.78rem', padding: '5px 12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                      >
-                        <Users size={13} /> {selectedWorkersList.length > 0 ? `Modify Selection (${selectedWorkersList.length})` : '+ Select Workers from Site'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0 0 12px 0' }}>
-                    Select workers deployed on this task stage. Each worker's individual daily wage will be totaled automatically.
-                  </p>
-
-                  {selectedWorkersList.length > 0 ? (
-                    <div>
-                      {/* Selected Summary Bar */}
-                      <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                        <div style={{ fontSize: '0.82rem', color: '#334155' }}>
-                          Deployed: <strong style={{ color: '#0f172a' }}>{selectedWorkersList.length} Worker(s)</strong>
-                        </div>
-                        <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#059669' }}>
-                          Total Labor Cost: ₹{selectedWorkersLaborCost.toLocaleString('en-IN')}
-                        </div>
-                      </div>
-
-                      {/* Selected Worker Chips / Cards */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', maxHeight: '180px', overflowY: 'auto', padding: '2px' }}>
-                        {selectedWorkersList.map(w => (
-                          <div
-                            key={w.id}
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              background: '#ffffff',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: '6px',
-                              padding: '8px 10px',
-                              fontSize: '0.8rem'
-                            }}
-                          >
-                            <div style={{ overflow: 'hidden' }}>
-                              <div style={{ fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {w.name}
-                              </div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>{w.trade}</span> &bull; <strong style={{ color: '#059669' }}>₹{w.dailyWage || 500}/day</strong>
-                                {w.status === 'Absent' && (
-                                  <span style={{ fontSize: '0.65rem', padding: '1px 5px', background: '#fee2e2', color: '#dc2626', borderRadius: '3px', fontWeight: 700 }}>
-                                    Absent
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedWorkerIds(prev => prev.filter(id => id !== w.id))}
-                              style={{ border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, marginLeft: '6px', flexShrink: 0 }}
-                              title="Remove this worker"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => setWorkerPickerOpen(true)}
-                      style={{
-                        padding: '20px',
-                        background: '#ffffff',
-                        borderRadius: '8px',
-                        border: '1.5px dashed #cbd5e1',
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        color: '#64748b',
-                        fontSize: '0.82rem'
-                      }}
-                    >
-                      <Users size={26} color="#94a3b8" style={{ margin: '0 auto 6px auto', display: 'block' }} />
-                      <div style={{ fontWeight: 600, color: '#0f172a' }}>No workers assigned yet</div>
-                      <div style={{ fontSize: '0.74rem', marginTop: '2px' }}>Click here to select workers from site directory</div>
-                    </div>
-                  )}
-
-                  {/* Labor Subtotal Bar */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setWorkerPickerOpen(true)}
-                      className="btn btn-sm btn-secondary"
-                      style={{ fontSize: '0.75rem', padding: '4px 10px', background: '#ffffff' }}
-                    >
-                      + Select / Modify Workers
-                    </button>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
-                      Labor Subtotal: <span style={{ color: '#2563eb' }}>₹{taskTotalLaborCost.toLocaleString('en-IN')}</span> ({taskTotalLaborCount} Workers)
-                    </div>
-                  </div>
-                </div>
-
-                {/* SECTION 4: SIMPLE CLEAN EXPENSE BREAKDOWN */}
-                <div style={{ marginBottom: '16px', background: '#ffffff', padding: '14px', borderRadius: '8px', border: '1.5px solid #cbd5e1' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Total Stage Operational Expense
-                    </span>
-                    <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#059669' }}>
-                      ₹{taskTotalExpense.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Material Cost:</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
-                        ₹{taskTotalMaterialCost.toLocaleString('en-IN')}
-                      </div>
-                      <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px' }}>
-                        {taskMaterials.filter(m => (m.name && m.name.trim()) && Number(m.quantity) > 0).length} Material items
-                      </div>
-                    </div>
-
-                    <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Labor Wages:</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
-                        ₹{taskTotalLaborCost.toLocaleString('en-IN')}
-                      </div>
-                      <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px' }}>
-                        {taskTotalLaborCount} Workers deployed
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Modal Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
-              <div>
-                {taskDrafts[photoUploadTaskId] && (
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    style={{ color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', fontSize: '0.78rem' }}
-                    onClick={() => {
-                      if (window.confirm('Clear all draft inputs for this task?')) {
-                        setTaskDrafts(prev => {
-                          const copy = { ...prev };
-                          delete copy[photoUploadTaskId];
-                          return copy;
-                        });
-                        setPhotoList([]);
-                        setTaskMaterials([{ selectedOption: '', name: '', quantity: '', unit: 'Units', unitRate: '', cost: '' }]);
-                        setSelectedWorkerIds([]);
-                      }
-                    }}
-                  >
-                    Clear Draft
-                  </button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="btn btn-secondary" onClick={() => { setPhotoUploadTaskId(null); setIsAddMoreMode(false); }}>
-                  Close (Keep Draft)
-                </button>
-                <button
-                  className="btn btn-primary"
-                  disabled={isCompressing}
-                  style={{
-                    fontWeight: 700,
-                    opacity: isCompressing ? 0.6 : 1
-                  }}
-                  onClick={() => handlePhotoSubmit(photoUploadTaskId)}
-                >
-                  {isCompressing ? (
-                    <>Compressing Photos...</>
-                  ) : (
-                    <><Send size={14} /> {isEditMode ? 'Update Task Evidence & Costs' : (isAddMoreMode ? 'Save & Attach More Photos' : 'Submit Task Evidence')}</>
-                  )}
-                </button>
-              </div>
+                        {/* Optional Stage Remarks */}
+            <div style={{ marginBottom: '16px' }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: '0.78rem', color: '#334155' }}>
+                Stage Notes / Remarks <span style={{ color: '#94a3b8', fontWeight: 400 }}>(Optional)</span>
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Brief note on stage completion (optional)..."
+                value={taskRemarks}
+                onChange={(e) => setTaskRemarks(e.target.value)}
+                className="form-control"
+                style={{ fontSize: '0.8rem', padding: '8px', resize: 'vertical' }}
+              />
             </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '14px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ fontSize: '0.82rem', padding: '7px 14px' }}
+                onClick={() => { setPhotoUploadTaskId(null); setIsAddMoreMode(false); }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={isCompressing || photoList.length === 0}
+                style={{
+                  fontSize: '0.82rem',
+                  padding: '7px 16px',
+                  fontWeight: 700,
+                  opacity: (isCompressing || photoList.length === 0) ? 0.6 : 1,
+                  background: '#059669',
+                  borderColor: '#047857'
+                }}
+                onClick={() => handlePhotoSubmit(photoUploadTaskId)}
+              >
+                {isCompressing ? 'Compressing Photos...' : <><Send size={13} style={{ display: 'inline', verticalAlign: '-1px', marginRight: '4px' }} /> Submit Photo Evidence</>}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -3115,6 +2832,91 @@ export default function SiteEngineerDashboard({
       })()}
 
 
+            {/* ⭐ SECTION: Dedicated Site Machinery Management Page */}
+      {(activeTab === 'equipment') && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
+          {/* Header Card */}
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '1.2rem', color: '#0f172a', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Briefcase size={20} color="#2563eb" /> Site Machinery & Heavy Equipment Directory
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+              Register equipment to MongoDB database. Newly added machinery will automatically appear in Daily Reports (DPR).
+            </p>
+
+            {/* Registration Form */}
+            <form onSubmit={handleAddMachinerytoDb} style={{ marginTop: '16px', background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                    Machinery Name *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Tata Hitachi EX200 Excavator"
+                    value={customeMachinaryName}
+                    onChange={e => setCustomeMachinaryName(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #94a3b8', fontSize: '0.85rem' }}
+                  />
+                </div>
+
+                <div>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ background: '#059669', borderColor: '#047857', fontWeight: 700, padding: '8px 20px', height: '38px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    + Save Machinery to DB
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Machinery Directory Table */}
+          <div className="glass-card" style={{ padding: '20px' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '14px' }}>
+              Database Registered Machinery ({dbMachinery.length})
+            </h4>
+
+            {dbMachinery.length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: '0.85rem' }}>No machinery added yet. Use the form above to add one.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left', color: '#475569' }}>
+                      <th style={{ padding: '10px 12px' }}>Equipment Name</th>
+                      <th style={{ padding: '10px 12px' }}>Standard Status</th>
+                      <th style={{ padding: '10px 12px' }}>DPR Availability</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dbMachinery.map((m, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>
+                          {m.name}
+                        </td>
+                        <td style={{ padding: '10px 12px', color: '#059669', fontWeight: 600 }}>
+                          Active / On-Site
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                            ✓ Available in DPR
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
 
       {/* SECTION 5: Site Construction Progress */}
       {(activeTab === 'site_progress') && (
@@ -3223,23 +3025,23 @@ export default function SiteEngineerDashboard({
               </p>
             </div>
           ) : (
-          /* Auto-Compiled DPR Card */
-          <div className="glass-card" style={{ padding: '24px', borderLeft: '5px solid #d97706' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '18px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
+          /* Compact Daily Progress Report (DPR) Card for Today Only */
+          <div className="glass-card" style={{ padding: '22px', borderLeft: '5px solid #d97706' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className="badge badge-amber" style={{ fontSize: '0.78rem', fontWeight: 700 }}>
-                    Auto-Compiled Daily Report
+                    Today's Daily Progress Report (DPR)
                   </span>
                   <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
                     Date: <strong>{new Date().toLocaleDateString('en-GB')}</strong> ({new Date().toISOString().split('T')[0]})
                   </span>
                 </div>
                 <h3 style={{ fontSize: '1.25rem', marginTop: '6px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: 800 }}>
-                  <Clipboard size={22} color="#d97706" /> Today's Daily Progress Report (DPR)
+                  <Clipboard size={22} color="#d97706" /> Today's Site Progress & Execution
                 </h3>
                 <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>
-                  Automatically prepared from ongoing site execution tasks, overall progress %, and uploaded photo evidence.
+                  Record daily work, site workforce attendance, materials consumed, equipment charges and photos.
                 </p>
               </div>
 
@@ -3254,265 +3056,548 @@ export default function SiteEngineerDashboard({
               </div>
             </div>
 
-            {/* Summary Metrics Grid */}
-            <div className="grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-              
-              {/* Metric 1: Overall Site Progress */}
-              <div style={{ padding: '14px', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a' }}>
-                <span style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 600, textTransform: 'uppercase' }}>Site Progress</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '4px' }}>
-                  <h3 style={{ fontSize: '1.6rem', color: '#b45309', margin: 0, fontWeight: 800 }}>{proj.progress || 0}%</h3>
-                  <span style={{ fontSize: '0.75rem', color: '#78350f', fontWeight: 600 }}>
-                    {completedStages.length}/{currentProjectTasks.length} Stages
+            {/* Quick Metrics Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+              {/* Site Progress */}
+              <div style={{ padding: '12px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                <span style={{ fontSize: '0.72rem', color: '#92400e', fontWeight: 600, textTransform: 'uppercase' }}>Site Progress</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '3px' }}>
+                  <h3 style={{ fontSize: '1.4rem', color: '#b45309', margin: 0, fontWeight: 800 }}>{proj.progress || 0}%</h3>
+                  <span style={{ fontSize: '0.73rem', color: '#78350f', fontWeight: 600 }}>
+                    {completedStages.length}/{currentProjectTasks.length} Stages Done
                   </span>
                 </div>
-                <div className="progress-track" style={{ height: '8px', marginTop: '8px', background: '#fed7aa' }}>
+                <div className="progress-track" style={{ height: '6px', marginTop: '6px', background: '#fed7aa' }}>
                   <div className="progress-fill" style={{ width: `${proj.progress || 0}%`, background: '#d97706' }}></div>
                 </div>
               </div>
 
-              {/* Metric 2: Site Engineer Assigned */}
-              <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Site Engineer In Charge</span>
-                <h4 style={{ fontSize: '1.05rem', color: '#0f172a', marginTop: '4px', margin: 0, fontWeight: 700 }}>
-                  {proj.acceptedBy || proj.engineerInCharge || currentUser?.name || 'Site Engineer'}
-                </h4>
-                <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CheckCircle size={13} /> Accepted & Signed on Site
+              {/* Workforce */}
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Active Workforce</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '3px' }}>
+                  <h3 style={{ fontSize: '1.4rem', color: '#0f172a', margin: 0, fontWeight: 800 }}>{dprTotalLaborCount}</h3>
+                  <span style={{ fontSize: '0.73rem', color: '#059669', fontWeight: 600 }}>Workers Selected Today</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '6px' }}>
+                  Engineer: <strong>{proj.acceptedBy || proj.engineerInCharge || currentUser?.name || 'Site Engineer'}</strong>
                 </div>
               </div>
 
-              {/* Metric 3: Active Stages Status */}
-              <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Current Execution Stage</span>
-                <h4 style={{ fontSize: '0.92rem', color: '#2563eb', marginTop: '4px', margin: 0, fontWeight: 700 }}>
-                  {ongoingStages[0]?.name || proj.currentStage || '1. Land Survey & Planning'}
-                </h4>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
-                  {ongoingStages.length} In-Progress • {pendingStages.length} Next
+              {/* Stages Summary */}
+              <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', gridColumn: 'span 2' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Active Site Stages</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                  {completedStages.map(s => (
+                    <span key={s.id} style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: '5px', fontSize: '0.72rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <CheckCircle size={11} color="#059669" /> {s.name} (Done)
+                    </span>
+                  ))}
+                  {ongoingStages.map(s => (
+                    <span key={s.id} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '3px 8px', borderRadius: '5px', fontSize: '0.72rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={11} color="#2563eb" /> {s.name} (Ongoing)
+                    </span>
+                  ))}
+                  {completedStages.length === 0 && ongoingStages.length === 0 && (
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>No active stages marked yet.</span>
+                  )}
                 </div>
-              </div>
-
-              {/* Metric 4: Workforce on Site */}
-              <div style={{ padding: '14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Labor & Workforce</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: '4px' }}>
-                  <h3 style={{ fontSize: '1.5rem', color: '#0f172a', margin: 0, fontWeight: 800 }}>{autoWorkersCount}</h3>
-                  <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>Active on Site</span>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>
-                  Standard Daily Shift
-                </div>
-              </div>
-
-            </div>
-
-            {/* Auto-Calculated Work Completed Section */}
-            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckSquare size={16} color="#059669" /> Auto-Compiled Daily Work Summary
-                </span>
-                <span className="badge badge-emerald" style={{ fontSize: '0.72rem' }}>
-                  Ready to Transmit to Admin
-                </span>
-              </div>
-              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', color: '#334155', lineHeight: 1.5, fontWeight: 500 }}>
-                {autoWorkDoneSummary}
-              </div>
-
-              {/* Task Badges Breakdown */}
-              <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {completedStages.map(s => (
-                  <span key={s.id} style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                    <CheckCircle size={12} color="#059669" /> {s.name} (Done)
-                  </span>
-                ))}
-                {ongoingStages.map(s => (
-                  <span key={s.id} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                    <Clock size={12} color="#2563eb" /> {s.name} (Ongoing)
-                  </span>
-                ))}
               </div>
             </div>
 
-            {/* Auto-Attached Photo Evidence */}
-            <div style={{ marginBottom: '22px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Camera size={16} color="#2563eb" /> Attached Site Photo Evidence ({allAvailablePhotos.length} Photos)
+            {/* FIELD 1: Work Executed Today */}
+            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <FileText size={15} color="#2563eb" /> 1. Work Executed Today <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <textarea
+                rows={2}
+                className="form-control"
+                placeholder="Describe today's construction operations, completed works, or progress highlights..."
+                value={dprWorkDone}
+                onChange={(e) => setDprWorkDone(e.target.value)}
+                style={{ fontSize: '0.84rem', padding: '10px', background: '#ffffff', resize: 'vertical' }}
+              />
+            </div>
+
+            {/* FIELD 2: Site Workforce / Laborers Today */}
+            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', margin: 0, fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Users size={15} color="#2563eb" /> 2. Site Workforce & Labor Wages Today
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                    Select present site workers or auto-fill from roster. Daily wages are automatically calculated.
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                  Labor Wages: ₹{dprTotalLaborCost.toLocaleString('en-IN')}
                 </span>
-                {allAvailablePhotos.length === 0 && (
-                  <span style={{ fontSize: '0.75rem', color: '#d97706' }}>
-                    Photos uploaded in the Tasks tab will automatically show here.
+              </div>
+
+              {/* Action buttons & workforce summary */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155' }}>
+                  {selectedWorkersList.length > 0 ? (
+                    <span style={{ color: '#059669', fontWeight: 700 }}>
+                      {selectedWorkersList.length} Workers Deployed Today
+                    </span>
+                  ) : (
+                    <span style={{ color: '#64748b' }}>No workers selected yet</span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllPresentWorkersForDpr}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: '#f0fdf4', color: '#166534', border: '1px solid #86efac',
+                      padding: '6px 12px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+                    }}
+                    title="Quick-select all workers marked Present today"
+                  >
+                    Auto-Fill Present Workers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkerPickerOpen(true)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: '#2563eb', color: '#ffffff', border: 'none',
+                      padding: '6px 14px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    <Users size={13} /> {selectedWorkersList.length > 0 ? 'Edit Worker Selection' : '+ Select Workers from Site'}
+                  </button>
+                  {selectedWorkersList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedWorkerIds([])}
+                      style={{
+                        background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca',
+                        padding: '6px 10px', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Chips for selected workers */}
+              {selectedWorkersList.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+                  {selectedWorkersList.map(w => (
+                    <span
+                      key={w.id}
+                      style={{
+                        fontSize: '0.72rem', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
+                        padding: '3px 8px', borderRadius: '5px', display: 'inline-flex', alignItems: 'center', gap: '5px'
+                      }}
+                    >
+                      <strong>{w.name}</strong> ({w.trade || 'Worker'}) • ₹{w.dailyWage || 500}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedWorkerIds(prev => prev.filter(x => x !== w.id))}
+                        style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', padding: 0, fontSize: '11px', fontWeight: 'bold' }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* FIELD 3: Materials Consumed Today */}
+            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', margin: 0, fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Package size={15} color="#d97706" /> 3. Daily Materials Consumed Today
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                    Select materials consumed today. Unit rate and total cost calculate automatically.
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#b45309', background: '#fffbeb', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fde68a' }}>
+                  Material Cost: ₹{dprTotalMaterialCost.toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              {/* Material Rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {dprMaterials.map((matRow, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1.4fr 0.65fr 0.65fr 0.8fr auto',
+                      gap: '6px',
+                      alignItems: 'center',
+                      background: '#ffffff',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1'
+                    }}
+                  >
+                    {/* Material Dropdown / Custom Name */}
+                    <div>
+                      {matRow.selectedOption === '__custom__' ? (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input
+                            type="text"
+                            placeholder="Custom material name..."
+                            value={matRow.name}
+                            onChange={(e) => handleDprMaterialFieldChange(idx, 'name', e.target.value)}
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDprMaterialSelect(idx, '')}
+                            style={{ border: 'none', background: '#f1f5f9', padding: '0 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#64748b' }}
+                            title="Back to catalog"
+                          >
+                            ↩
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          value={matRow.selectedOption || ''}
+                          onChange={(e) => handleDprMaterialSelect(idx, e.target.value)}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', color: '#0f172a', background: '#ffffff' }}
+                        >
+                          <option value="">Select Material...</option>
+                          {materials && materials.length > 0 && (
+                            <optgroup label="Site Project Inventory">
+                              {materials.map(m => (
+                                <option key={m.id} value={m.name}>
+                                  {m.name} ({m.stock} {m.unit} in stock)
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label="Standard Construction Materials">
+                            {ALL_CATALOG_MATERIALS.map(m => (
+                              <option key={m.id} value={m.name}>
+                                {m.name} (₹{m.defaultCost}/{m.unit})
+                              </option>
+                            ))}
+                          </optgroup>
+                          <option value="__custom__">+ Custom Material Name...</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Quantity */}
+                    <div>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Qty"
+                        value={matRow.quantity}
+                        onChange={(e) => handleDprMaterialFieldChange(idx, 'quantity', e.target.value)}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', textAlign: 'center' }}
+                      />
+                    </div>
+
+                    {/* Unit */}
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Unit"
+                        value={matRow.unit}
+                        onChange={(e) => handleDprMaterialFieldChange(idx, 'unit', e.target.value)}
+                        style={{ width: '100%', padding: '6px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.78rem', textAlign: 'center', background: '#f8fafc' }}
+                      />
+                    </div>
+
+                    {/* Cost */}
+                    <div>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: '6px', top: '7px', fontSize: '0.75rem', color: '#64748b' }}>₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Total"
+                          value={matRow.cost}
+                          onChange={(e) => handleDprMaterialFieldChange(idx, 'cost', e.target.value)}
+                          style={{ width: '100%', padding: '6px 6px 6px 18px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', fontWeight: 600, color: '#059669', textAlign: 'right' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Remove row */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDprMaterial(idx)}
+                        disabled={dprMaterials.length === 1 && !matRow.name && !matRow.quantity}
+                        style={{
+                          background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626',
+                          borderRadius: '6px', padding: '6px 8px',
+                          cursor: (dprMaterials.length === 1 && !matRow.name && !matRow.quantity) ? 'not-allowed' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          opacity: (dprMaterials.length === 1 && !matRow.name && !matRow.quantity) ? 0.4 : 1
+                        }}
+                        title="Remove row"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add row */}
+              <div style={{ marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setDprMaterials(prev => [...prev, { selectedOption: '', name: '', quantity: '', unit: 'Units', unitRate: '', cost: '' }])}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    background: '#fffbeb', border: '1px dashed #d97706', color: '#b45309',
+                    padding: '5px 12px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={13} /> Add Material Row
+                </button>
+              </div>
+            </div>
+
+            {/* FIELD 4: Site Machinery & Equipment (Multi-Row with Unit Selector) */}
+            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Briefcase size={15} color="#2563eb" /> 4. Site Machinery & Equipment (Optional)
+                  </span>
+                  <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '2px 0 0 0' }}>
+                    Select equipment used today and choose amount unit (₹, Thousand, Lakh, Crore).
+                  </p>
+                </div>
+                {dprMachineryCharge > 0 && (
+                  <span style={{ background: '#ecfdf5', color: '#059669', padding: '3px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 800, border: '1px solid #a7f3d0' }}>
+                    Machinery: ₹{dprMachineryCharge.toLocaleString('en-IN')}
                   </span>
                 )}
               </div>
 
-              {allAvailablePhotos.length > 0 ? (
-                <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '4px' }}>
-                  {allAvailablePhotos.map((imgUrl, iIdx) => (
-                    <div 
-                      key={iIdx} 
-                      onClick={() => {
-                        setViewPhotoGallery(allAvailablePhotos);
-                        setViewPhotoIndex(iIdx);
-                        setViewPhotoUrl(imgUrl);
-                      }}
-                      style={{ width: '130px', height: '95px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #e2e8f0', cursor: 'pointer', flexShrink: 0, position: 'relative', boxShadow: '0 2px 5px rgba(0,0,0,0.08)' }}
-                    >
-                      <img 
-                        src={imgUrl} 
-                        alt={`Evidence ${iIdx + 1}`} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="130" height="95" fill="%23f1f5f9"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="12" fill="%2364748b">Site Photo</text></svg>';
-                        }}
-                      />
-                      <span style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#ffffff', fontSize: '0.65rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
-                        #{iIdx + 1}
-                      </span>
+              {/* Machinery Rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {machineryList.map((mRow, mIdx) => (
+                  <div 
+                    key={mIdx}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1.3fr 0.9fr 1fr auto',
+                      gap: '10px',
+                      alignItems: 'end',
+                      background: '#ffffff',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1'
+                    }}
+                  >
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                        Machinery {machineryList.length > 1 ? `#${mIdx + 1}` : ''}
+                      </label>
+
+
+                      <select
+                        value={mRow.name}
+                        onChange={(e) => handleUpdateMachineryRow(mIdx, 'name', e.target.value)}
+                        style={{ width: '100%', padding: '7px 9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', color: '#0f172a', background: '#ffffff', fontWeight: 500 }}
+                      >
+                        <option value="">Select Machinery (or None)</option>
+                        {[...dbMachinery.map(m => m.name), ...MACHINERY_OPTIONS.filter(opt => opt !== 'None')].map((opt, oIdx) => (
+                         <option key={oIdx} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
-                  ))}
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                        Charge Amount
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="e.g. 5 or 5000"
+                        value={mRow.chargeVal !== undefined ? mRow.chargeVal : (mRow.charge || '')}
+                        onChange={(e) => handleUpdateMachineryRow(mIdx, 'chargeVal', e.target.value)}
+                        style={{ width: '100%', padding: '7px 9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', color: '#0f172a', background: '#ffffff', fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                        Unit
+                      </label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <select
+                          value={mRow.chargeUnit || 'Rupees'}
+                          onChange={(e) => handleUpdateMachineryRow(mIdx, 'chargeUnit', e.target.value)}
+                          style={{ width: '100%', padding: '7px 9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', color: '#0f172a', background: '#ffffff', fontWeight: 600 }}
+                        >
+                          <option value="Rupees">₹ (Rupees)</option>
+                          <option value="Thousand">Thousand (K)</option>
+                          <option value="Lakh">Lakh (L)</option>
+                          <option value="Cr">Crore (Cr)</option>
+                        </select>
+                        {mRow.chargeUnit && mRow.chargeUnit !== 'Rupees' && Number(mRow.charge) > 0 && (
+                          <span style={{ fontSize: '0.7rem', color: '#059669', fontWeight: 700 }}>
+                            = ₹{Number(mRow.charge).toLocaleString('en-IN')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMachineryRow(mIdx)}
+                        disabled={machineryList.length === 1 && !mRow.name && !mRow.charge}
+                        title="Remove this machinery"
+                        style={{
+                          background: '#fee2e2',
+                          border: '1px solid #fecaca',
+                          color: '#dc2626',
+                          borderRadius: '6px',
+                          padding: '8px 10px',
+                          cursor: machineryList.length === 1 && !mRow.name && !mRow.charge ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: machineryList.length === 1 && !mRow.name && !mRow.charge ? 0.4 : 1
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Another Machinery Button */}
+              <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={handleAddMachineryRow}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#eff6ff',
+                    border: '1px dashed #3b82f6',
+                    color: '#2563eb',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={13} /> Add Another Machinery
+                </button>
+              </div>
+            </div>
+
+            {/* FIELD 5: Site Photos (Optional for DPR) */}
+
+            <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700, color: '#0f172a', margin: 0, fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Camera size={15} color="#2563eb" /> 5. Site Photos <span style={{ color: '#64748b', fontWeight: 400 }}>(Optional)</span>
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                    Attach daily site photos if needed.
+                  </span>
                 </div>
-              ) : (
-                <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1', fontSize: '0.82rem', color: '#64748b', textAlign: 'center' }}>
-                  No photos uploaded for site tasks yet. Photos uploaded in the Tasks tab will automatically appear here.
+                {dprPhotos.length > 0 && (
+                  <span style={{ fontSize: '0.76rem', color: '#059669', fontWeight: 700 }}>
+                    {dprPhotos.length} Photo(s) Attached
+                  </span>
+                )}
+              </div>
+
+              <input
+                ref={dprFileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onClick={(e) => { e.target.value = ''; }}
+                onChange={handleDprPhotoSelect}
+                className="form-control"
+                style={{ padding: '8px', fontSize: '0.8rem', background: '#ffffff' }}
+              />
+
+              {/* Photo preview */}
+              {dprPhotos.length > 0 && (
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#2563eb', marginBottom: '6px' }}>
+                    Photos Uploaded for this DPR ({dprPhotos.length}):
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {dprPhotos.map((url, idx) => (
+                      <div key={idx} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', border: '1.5px solid #cbd5e1' }}>
+                        <img src={url} alt={`DPR Photo ${idx + 1}`} style={{ width: '100%', height: '70px', objectFit: 'cover' }} />
+                        <button
+                          type="button"
+                          onClick={() => setDprPhotos(prev => prev.filter((_, i) => i !== idx))}
+                          style={{
+                            position: 'absolute', top: '2px', right: '2px', background: '#dc2626', color: '#ffffff',
+                            border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '11px',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                          title="Remove photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Daily Materials Consumed / Used in Tasks Section (Auto-Compiled & Read-Only) */}
-            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '22px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <div>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Package size={16} color="#d97706" /> Daily Materials Consumed in Tasks
-                  </span>
-                  <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '2px 0 0 0' }}>
-                    Auto-compiled from completed task stages. Read-only summary for direct submission to Admin.
-                  </p>
-                </div>
-                <span className="badge badge-amber" style={{ fontSize: '0.72rem' }}>
-                  Auto-Calculated from Tasks
+            {/* Daily Site Operational Expense Bar (Exact match with screenshot 1!) */}
+            <div style={{
+              background: '#ffffff', padding: '14px 18px', borderRadius: '10px',
+              border: '1.5px solid #cbd5e1', marginBottom: '16px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '4px' }}>
+                  TODAY'S DAILY OPERATIONAL EXPENSE
                 </span>
-              </div>
-
-              {/* List of auto-compiled materials from tasks */}
-              {taskMaterialsConsolidated.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px', marginBottom: '14px' }}>
-                  {taskMaterialsConsolidated.map((item, idx) => (
-                    <div key={idx} style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                      <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.name}
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.78rem' }}>
-                        <span style={{ color: '#475569', fontWeight: 600 }}>Quantity: <strong>{item.quantity} {item.unit}</strong></span>
-                        <span style={{ color: '#059669', fontWeight: 800 }}>₹{item.totalCost.toLocaleString('en-IN')}</span>
-                      </div>
-                      {item.taskNames && item.taskNames.length > 0 && (
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          Stage: {item.taskNames.join(' • ')}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ padding: '16px', background: '#ffffff', borderRadius: '8px', border: '1px dashed #cbd5e1', fontSize: '0.82rem', color: '#64748b', textAlign: 'center', marginBottom: '14px' }}>
-                  No materials recorded in tasks yet. Materials and photos submitted in the Tasks tab will automatically appear here.
-                </div>
-              )}
-
-              {/* Auto Expense Summary Bar */}
-              <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '0.84rem' }}>
                   <span style={{ color: '#b45309', fontWeight: 600 }}>
-                    Material Cost: <strong>₹{dprAutoMaterialCost.toLocaleString('en-IN')}</strong>
+                    Materials: <strong>₹{dprTotalMaterialCost.toLocaleString('en-IN')}</strong>
                   </span>
                   <span style={{ color: '#1d4ed8', fontWeight: 600 }}>
-                    Labor Wages: <strong>₹{(dprAutoLaborCost > 0 ? dprAutoLaborCost : (autoWorkersCount * 500)).toLocaleString('en-IN')}</strong> ({dprAutoLaborCount} Workers{taskLaborConsolidated.length > 0 ? `: ${taskLaborConsolidated.map(l => `${l.role}: ${l.count} @ ₹${l.dailyWage}`).join(', ')}` : ''})
+                    Labor Wages: <strong>₹{dprTotalLaborCost.toLocaleString('en-IN')}</strong>
                   </span>
-                  {dprAutoMachineryCharge > 0 && (
+                  {dprMachineryCharge > 0 && (
                     <span style={{ color: '#0369a1', fontWeight: 600 }}>
-                      Machinery Charge: <strong>₹{dprAutoMachineryCharge.toLocaleString('en-IN')}</strong> ({machineryUsed})
+                      Machinery: <strong>₹{dprMachineryCharge.toLocaleString('en-IN')}</strong>
                     </span>
                   )}
                 </div>
-                <div style={{ background: '#ecfdf5', color: '#059669', padding: '4px 12px', borderRadius: '6px', fontSize: '0.88rem', fontWeight: 800, border: '1px solid #a7f3d0' }}>
-                  Total Daily Stage Cost: ₹{dprAutoTotalCost.toLocaleString('en-IN')}
-                </div>
               </div>
 
-              <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '10px', fontStyle: 'italic' }}>
-                Notice: Daily Report is auto-compiled and read-only. To modify materials, quantities, or photos, please click "Edit Details" on the task in the Tasks tab.
+              <div style={{ background: '#ecfdf5', color: '#059669', padding: '8px 16px', borderRadius: '8px', fontSize: '1rem', fontWeight: 800, border: '1px solid #a7f3d0' }}>
+                Total Daily Cost: ₹{dprTotalDailyCost.toLocaleString('en-IN')}
               </div>
             </div>
 
-            {/* Machinery & Heavy Equipment Grid-Down Section (Integrated into DPR) */}
-            <div style={{ padding: '16px', background: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd', marginBottom: '22px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <div>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Briefcase size={16} color="#0284c7" /> Site Machinery & Equipment Deployed Today
-                  </span>
-                  <p style={{ fontSize: '0.74rem', color: '#64748b', margin: '2px 0 0 0' }}>
-                    Select heavy machinery or equipment used on site and record its daily charge / rental cost.
-                  </p>
-                </div>
-                <span className="badge badge-blue" style={{ fontSize: '0.72rem' }}>
-                  Machinery & Daily Charge
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: machineryUsed !== 'None' ? '1fr 1fr' : '1fr', gap: '14px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                    Select Machinery Deployed (Grid-Down Selection)
-                  </label>
-                  <select
-                    className="input-field"
-                    value={machineryUsed}
-                    onChange={(e) => {
-                      setMachineryUsed(e.target.value);
-                      if (e.target.value === 'None') setMachineryCharge('');
-                    }}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #94a3b8', background: '#ffffff', fontSize: '0.88rem', fontWeight: 600, color: '#0f172a' }}
-                  >
-                    {MACHINERY_OPTIONS.map((mOpt, mIdx) => (
-                      <option key={mIdx} value={mOpt}>{mOpt}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {machineryUsed !== 'None' && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                      Daily Machinery Charge / Rent (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="input-field"
-                      placeholder="e.g. 8500"
-                      value={machineryCharge}
-                      onChange={(e) => setMachineryCharge(e.target.value)}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #94a3b8', background: '#ffffff', fontSize: '0.88rem', fontWeight: 600, color: '#0f172a' }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {machineryUsed !== 'None' && (
-                <div style={{ marginTop: '10px', fontSize: '0.76rem', color: '#0284c7', background: '#e0f2fe', padding: '6px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Machinery selected: <strong>{machineryUsed}</strong></span>
-                  <span>Daily Charge added: <strong>₹{Number(machineryCharge || 0).toLocaleString('en-IN')}</strong></span>
-                </div>
-              )}
-            </div>
-
-            {/* Prominent Auto Submit Button */}
+            {/* Prominent DPR Submit Button */}
             <button 
               type="button" 
               className="btn btn-primary" 
@@ -3520,7 +3605,7 @@ export default function SiteEngineerDashboard({
               disabled={dprSubmitting}
               style={{ 
                 width: '100%', 
-                padding: '14px 20px', 
+                padding: '13px 20px', 
                 fontSize: '0.95rem', 
                 fontWeight: 700, 
                 display: 'flex', 
@@ -3539,106 +3624,229 @@ export default function SiteEngineerDashboard({
           </div>
           )}
 
-          {/* DPR History Log */}
-          <div className="glass-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: 700 }}>
-              <FileText size={18} color="#2563eb" /> Daily Progress Reports & History Log
-            </h3>
+        </div>
+      )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '500px', overflowY: 'auto' }}>
-              {dprs.map(dpr => {
-                const reportPhotos = Array.isArray(dpr.photos) && dpr.photos.length > 0
-                  ? dpr.photos
-                  : (dpr.sitePhoto ? [dpr.sitePhoto] : []);
+      {(activeTab === 'submitted_reports') && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="glass-card" style={{ padding: '24px', borderLeft: '5px solid #2563eb' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
+              <div>
+                <span className="badge badge-blue" style={{ fontSize: '0.78rem', fontWeight: 700 }}>
+                  Reports Archive & Database
+                </span>
+                <h3 style={{ fontSize: '1.25rem', marginTop: '6px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: 800 }}>
+                  <FileText size={22} color="#2563eb" /> Submitted Daily Reports
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: 0 }}>
+                  All past daily progress reports submitted to Admin. Click "Details" on any report to view its full breakdown and photos.
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span className="badge badge-emerald" style={{ fontSize: '0.85rem', padding: '6px 14px', fontWeight: 800 }}>
+                  Total Submitted: {dprs.length}
+                </span>
+              </div>
+            </div>
 
-                return (
-                  <div key={dpr.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>
-                        {dpr.date} — {dpr.projectName}
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <span className="badge badge-blue">{dpr.engineerName || 'Site Engineer'}</span>
-                        {dpr.progress !== undefined && dpr.progress !== null && (
-                          <span className="badge badge-amber" style={{ fontWeight: 700 }}>Progress: {dpr.progress}%</span>
-                        )}
-                      </div>
-                    </div>
+            {dprs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+                <FileText size={40} color="#cbd5e1" style={{ margin: '0 auto 12px auto', display: 'block' }} />
+                <h4 style={{ fontSize: '1.05rem', color: '#0f172a', margin: '0 0 6px 0' }}>No Submitted Reports Yet</h4>
+                <p style={{ fontSize: '0.85rem', margin: 0 }}>
+                  Reports submitted from the Daily Report (DPR) tab will be archived and stored here automatically.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {dprs.map(dpr => {
+                  const isExp = Boolean(expandedSubmittedReports[dpr.id]);
+                  const reportPhotos = Array.isArray(dpr.photos) && dpr.photos.length > 0
+                    ? dpr.photos
+                    : (dpr.sitePhoto ? [dpr.sitePhoto] : []);
+                  const totalCostVal = Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0) + Number(dpr.machineryCharge || 0))));
 
-                    <p style={{ fontSize: '0.85rem', color: '#334155', marginTop: '4px', lineHeight: 1.4 }}>
-                      <strong>Work Done:</strong> {dpr.workDone}
-                    </p>
-
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '0.78rem', color: '#64748b', marginTop: '8px', flexWrap: 'wrap' }}>
-                      <span><strong>Workers:</strong> {dpr.laborCount}</span>
-                      <span><strong>Materials:</strong> {dpr.materialsUsed}</span>
-                    </div>
-
-                    {/* Dedicated Expense Breakdown Field */}
-                    {(dpr.totalCost > 0 || dpr.materialCost > 0 || dpr.laborCost > 0 || dpr.machineryCharge > 0) && (
-                      <div style={{ marginTop: '10px', background: '#ffffff', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem' }}>
-                          <span style={{ color: '#b45309', fontWeight: 600 }}>
-                            Material Cost: ₹{Number(dpr.materialCost || 0).toLocaleString('en-IN')}
+                  return (
+                    <div 
+                      key={dpr.id} 
+                      style={{ 
+                        background: '#f8fafc', 
+                        borderRadius: '10px', 
+                        border: '1px solid #e2e8f0',
+                        overflow: 'hidden',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {/* Compact Header Summary Row */}
+                      <div 
+                        style={{ 
+                          padding: '14px 18px', 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          flexWrap: 'wrap', 
+                          gap: '10px',
+                          cursor: 'pointer',
+                          background: isExp ? '#f1f5f9' : '#ffffff'
+                        }}
+                        onClick={() => setExpandedSubmittedReports(prev => ({ ...prev, [dpr.id]: !prev[dpr.id] }))}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a' }}>
+                            {dpr.date}
                           </span>
-                          <span style={{ color: '#1d4ed8', fontWeight: 600 }}>
-                            Labor Wages: ₹{Number(dpr.laborCost || 0).toLocaleString('en-IN')} ({dpr.laborCount || 0} Workers)
+                          <span className="badge badge-blue" style={{ fontSize: '0.76rem' }}>
+                            {dpr.projectName}
                           </span>
-                          {Number(dpr.machineryCharge || 0) > 0 && (
-                            <span style={{ color: '#0369a1', fontWeight: 600 }}>
-                              Machinery Charge: ₹{Number(dpr.machineryCharge).toLocaleString('en-IN')} ({dpr.machineryUsed || 'Equipment'})
+                          {dpr.progress !== undefined && dpr.progress !== null && (
+                            <span className="badge badge-amber" style={{ fontSize: '0.74rem', fontWeight: 700 }}>
+                              {dpr.progress}% Done
                             </span>
                           )}
                         </div>
-                        <div style={{ background: '#ecfdf5', color: '#059669', padding: '3px 10px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 800, border: '1px solid #a7f3d0' }}>
-                          Total Daily Site Cost: ₹{Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0) + Number(dpr.machineryCharge || 0)))).toLocaleString('en-IN')}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {totalCostVal > 0 && (
+                            <div style={{ background: '#ecfdf5', color: '#059669', padding: '4px 10px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 800, border: '1px solid #a7f3d0' }}>
+                              Daily Cost: ₹{totalCostVal.toLocaleString('en-IN')}
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            style={{
+                              background: isExp ? '#e2e8f0' : '#f8fafc',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '6px',
+                              padding: '5px 10px',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              color: '#334155',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isExp ? <>Hide <ChevronUp size={13} /></> : <>Details <ChevronDown size={13} /></>}
+                          </button>
                         </div>
                       </div>
-                    )}
 
-                    {dpr.machineryUsed && dpr.machineryUsed !== 'None' && !dpr.machineryCharge && (
-                      <div style={{ marginTop: '6px', fontSize: '0.75rem', color: '#0284c7' }}>
-                        <strong>Machinery Used:</strong> {dpr.machineryUsed}
-                      </div>
-                    )}
+                      {/* Brief preview even when closed */}
+                      {!isExp && dpr.workDone && (
+                        <div style={{ padding: '0 18px 12px 18px', fontSize: '0.82rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <strong>Work:</strong> {dpr.workDone}
+                        </div>
+                      )}
 
-                    {reportPhotos.length > 0 && (
-                      <div style={{ marginTop: '10px', display: 'flex', gap: '8px', overflowX: 'auto', padding: '2px' }}>
-                        {reportPhotos.map((ph, pIdx) => (
-                          <div 
-                            key={pIdx}
-                            onClick={() => {
-                              setViewPhotoGallery(reportPhotos);
-                              setViewPhotoIndex(pIdx);
-                              setViewPhotoUrl(ph);
-                            }}
-                            style={{ width: '100px', height: '70px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'pointer', flexShrink: 0 }}
-                          >
-                            <img 
-                              src={ph} 
-                              alt={`Evidence ${pIdx + 1}`} 
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="70" fill="%23f1f5f9"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="%2364748b">Site Photo</text></svg>';
-                              }}
-                            />
+                      {/* Expandable Details Drawer */}
+                      {isExp && (
+                        <div style={{ padding: '16px 18px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                              Work Executed:
+                            </span>
+                            <p style={{ fontSize: '0.88rem', color: '#0f172a', margin: '4px 0 0 0', lineHeight: 1.5, fontWeight: 500 }}>
+                              {dpr.workDone}
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                    )}
 
-                    {dpr.remarks && dpr.remarks !== 'None' && (
-                      <div style={{ marginTop: '8px', padding: '6px 10px', background: '#f1f5f9', borderRadius: '4px', fontSize: '0.75rem', color: '#475569' }}>
-                        <strong>Notes:</strong> {dpr.remarks}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                            <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }}>
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>Workforce:</span>
+                              <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                                {dpr.laborCount || 0} Workers Deployed
+                              </div>
+                            </div>
+                            <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }}>
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>Materials:</span>
+                              <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {dpr.materialsUsed || 'Standard Materials'}
+                              </div>
+                            </div>
+                            {dpr.machineryUsed && dpr.machineryUsed !== 'None' && (
+                              <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }}>
+                                <span style={{ color: '#64748b', fontWeight: 600 }}>Machinery & Equipment:</span>
+                                <div style={{ fontWeight: 700, color: '#0284c7', marginTop: '2px' }}>
+                                  {dpr.machineryUsed}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Expense Breakdown */}
+                          {(totalCostVal > 0 || Number(dpr.materialCost || 0) > 0 || Number(dpr.laborCost || 0) > 0 || Number(dpr.machineryCharge || 0) > 0) && (
+                            <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                                  Daily Site Operational Expense Breakdown
+                                </span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#059669' }}>
+                                  Total Daily Site Cost: ₹{totalCostVal.toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', fontSize: '0.78rem' }}>
+                                <span style={{ color: '#b45309', fontWeight: 600 }}>
+                                  Materials: ₹{Number(dpr.materialCost || 0).toLocaleString('en-IN')}
+                                </span>
+                                <span style={{ color: '#1d4ed8', fontWeight: 600 }}>
+                                  Labor Wages: ₹{Number(dpr.laborCost || 0).toLocaleString('en-IN')}
+                                </span>
+                                {Number(dpr.machineryCharge || 0) > 0 && (
+                                  <span style={{ color: '#0369a1', fontWeight: 600 }}>
+                                    Machinery: ₹{Number(dpr.machineryCharge).toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Attached Photos */}
+                          {reportPhotos.length > 0 && (
+                            <div>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>
+                                Attached Photo Evidence ({reportPhotos.length}):
+                              </span>
+                              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '2px' }}>
+                                {reportPhotos.map((ph, pIdx) => (
+                                  <div 
+                                    key={pIdx}
+                                    onClick={() => {
+                                      setViewPhotoGallery(reportPhotos);
+                                      setViewPhotoIndex(pIdx);
+                                      setViewPhotoUrl(ph);
+                                    }}
+                                    style={{ width: '100px', height: '70px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'pointer', flexShrink: 0 }}
+                                  >
+                                    <img 
+                                      src={ph} 
+                                      alt={`Evidence ${pIdx + 1}`} 
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                      onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="70" fill="%23f1f5f9"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="%2364748b">Site Photo</text></svg>';
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {dpr.remarks && dpr.remarks !== 'None' && (
+                            <div style={{ padding: '8px 12px', background: '#e2e8f0', borderRadius: '6px', fontSize: '0.76rem', color: '#334155' }}>
+                              <strong>Engineer Notes:</strong> {dpr.remarks}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
         </div>
       )}
 
@@ -3791,7 +3999,6 @@ export default function SiteEngineerDashboard({
                       <th style={{ padding: '12px 14px' }}>Expense Title & Details</th>
                       <th style={{ padding: '12px 14px' }}>Category</th>
                       <th style={{ padding: '12px 14px' }}>Project</th>
-                      <th style={{ padding: '12px 14px' }}>Receipt / Bill</th>
                       <th style={{ padding: '12px 14px' }}>Amount (₹)</th>
                       <th style={{ padding: '12px 14px' }}>Wallet Status</th>
                     </tr>
@@ -3824,23 +4031,6 @@ export default function SiteEngineerDashboard({
                           </td>
                           <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', color: '#475569', fontSize: '0.82rem' }}>
                             {exp.projectName || proj.name}
-                          </td>
-                          <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                            {exp.receiptPhoto ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setViewPhotoGallery([exp.receiptPhoto]);
-                                  setViewPhotoIndex(0);
-                                  setViewPhotoUrl(exp.receiptPhoto);
-                                }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', color: '#2563eb', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer' }}
-                              >
-                                <Eye size={13} /> View Bill
-                              </button>
-                            ) : (
-                              <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>No Receipt</span>
-                            )}
                           </td>
                           <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                             <strong style={{ fontSize: '0.98rem', color: isPaid ? '#059669' : '#b45309' }}>
@@ -3912,36 +4102,69 @@ export default function SiteEngineerDashboard({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
-                    Amount (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    placeholder="e.g. 2400"
-                    value={expenseForm.amount}
-                    onChange={(e) => setExpenseForm(prev => ({ ...prev, amount: e.target.value }))}
-                    className="input-field"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
-                  />
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
+                  Expense Claim Amount & Currency Scale *
+                </label>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.73rem', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                      Amount Value
+                    </span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      required
+                      placeholder="e.g. 500 or 25"
+                      value={expenseForm.amountVal}
+                      onChange={(e) => setExpenseForm(prev => ({ ...prev, amountVal: e.target.value }))}
+                      className="input-field"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.73rem', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                      Unit (Scale)
+                    </span>
+                    <select
+                      value={expenseForm.amountUnit}
+                      onChange={(e) => setExpenseForm(prev => ({ ...prev, amountUnit: e.target.value }))}
+                      className="input-field"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600, background: '#ffffff' }}
+                    >
+                      <option value="Rupees">Rupees (₹)</option>
+                      <option value="Hundred">Hundred</option>
+                      <option value="Hajar">Thousand (K)</option>
+                      <option value="Lakh">Lakh (L)</option>
+                      <option value="Cr">Crore (Cr)</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
-                    Expense Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={expenseForm.date}
-                    onChange={(e) => setExpenseForm(prev => ({ ...prev, date: e.target.value }))}
-                    className="input-field"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
-                  />
+                {/* Live Formatted Total in ₹ */}
+                <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Total Expense Claim:</span>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#059669' }}>
+                    ₹{calculateAmountInRupees(expenseForm.amountVal, expenseForm.amountUnit).toLocaleString('en-IN')}
+                  </span>
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
+                  Expense Date *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={expenseForm.date}
+                  onChange={(e) => setExpenseForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="input-field"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                />
               </div>
 
               <div>

@@ -94,6 +94,21 @@ router.get('/', (req, res) => {
       p.engineerInCharge = p.acceptedBy;
       changed = true;
     }
+    if (!p.engineerEmail) {
+      const match = (db.users || []).find(u => 
+        (p.acceptedByEmail && u.email?.toLowerCase() === p.acceptedByEmail.toLowerCase()) ||
+        (p.acceptedBy && u.name?.toLowerCase() === p.acceptedBy.toLowerCase()) ||
+        (p.engineerInCharge && (u.email?.toLowerCase() === p.engineerInCharge.toLowerCase() || u.name?.toLowerCase() === p.engineerInCharge.toLowerCase()))
+      );
+      if (match) {
+        p.engineerEmail = match.email;
+        if (!p.acceptedByEmail) p.acceptedByEmail = match.email;
+        changed = true;
+      } else if (p.engineerInCharge && p.engineerInCharge.includes('@')) {
+        p.engineerEmail = p.engineerInCharge;
+        changed = true;
+      }
+    }
     if (!p.photos) {
       p.photos = [];
       changed = true;
@@ -123,7 +138,13 @@ router.get('/', (req, res) => {
 
 // GET /api/projects/clients - Get all client profiles
 router.get('/clients', (req, res) => {
-  res.json({ success: true, clients: db.clients || [] });
+  const clients = (db.projects || []).filter(p => p.clientName).map(p => ({
+    name: p.clientName,
+    phone: p.clientPhone || '',
+    projectId: p.id,
+    projectName: p.name
+  }));
+  res.json({ success: true, clients });
 });
 
 // GET /api/projects/:id - Get project by ID
@@ -144,31 +165,59 @@ router.get('/:id', (req, res) => {
 
 // POST /api/projects - Create new project (Admin) with auto-increment counter ID (1, 2, 3...)
 router.post('/', (req, res) => {
-  const { name, clientName, clientPhone, location, budget, type, engineerInCharge, specifications } = req.body;
+  const { name, clientName, clientPhone, location, budget, type, engineerInCharge, engineerEmail, specifications } = req.body;
   const newId = typeof db.getNextProjectId === 'function' ? db.getNextProjectId() : String((db.projects?.length || 0) + 1);
 
-  // Store client profile in separate clients collection
-  if (clientName && clientName.trim()) {
-    if (!Array.isArray(db.clients)) db.clients = [];
-    const clientExists = db.clients.find(c => c.name.toLowerCase() === clientName.trim().toLowerCase());
-    if (!clientExists) {
-      db.clients.push({
-        id: `client_${Date.now()}`,
-        name: clientName.trim(),
-        phone: clientPhone || "",
-        address: location || "Ahmedabad, Gujarat",
-        projectId: newId,
-        createdAt: new Date().toISOString()
-      });
+  // Auto-resolve or register Client in 'clients' collection (Relational Foreign Key)
+  let resolvedClientId = req.body.clientId || '';
+  const finalClientName = (clientName && clientName.trim()) ? clientName.trim() : 'Valued Client';
+  
+  if (!Array.isArray(db.clients)) db.clients = [];
+  let matchedClient = db.clients.find(c => 
+    (resolvedClientId && String(c.id) === String(resolvedClientId)) ||
+    c.name.toLowerCase() === finalClientName.toLowerCase()
+  );
+
+  if (matchedClient) {
+    resolvedClientId = matchedClient.id;
+    if (clientPhone && !matchedClient.phone) matchedClient.phone = clientPhone;
+  } else {
+    resolvedClientId = `CLI-${String(db.clients.length + 1).padStart(3, '0')}`;
+    matchedClient = {
+      id: resolvedClientId,
+      name: finalClientName,
+      phone: clientPhone || '',
+      email: `${finalClientName.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.com`,
+      company: finalClientName,
+      address: location || 'Gujarat, India',
+      createdAt: new Date().toISOString()
+    };
+    db.clients.push(matchedClient);
+  }
+
+  // Resolve engineer email if assigned
+  let resolvedEngEmail = engineerEmail || '';
+  let resolvedEngName = engineerInCharge || 'Unassigned';
+  if (!resolvedEngEmail && engineerInCharge && engineerInCharge !== 'Unassigned') {
+    const matchedUser = (db.users || []).find(u => 
+      u.name?.toLowerCase() === engineerInCharge.toLowerCase() || 
+      u.email?.toLowerCase() === engineerInCharge.toLowerCase()
+    );
+    if (matchedUser) {
+      resolvedEngEmail = matchedUser.email;
+      resolvedEngName = matchedUser.name;
+    } else if (engineerInCharge.includes('@')) {
+      resolvedEngEmail = engineerInCharge;
     }
   }
 
   const newProj = {
     id: newId,
     name,
-    clientName: clientName || "",
-    clientPhone: clientPhone || "",
-    contactPhone: clientPhone || "",
+    clientId: resolvedClientId, // Foreign Key linking to clients collection
+    clientName: matchedClient.name,
+    clientPhone: matchedClient.phone || clientPhone || "",
+    contactPhone: matchedClient.phone || clientPhone || "",
     location: location || "",
     budget: Number(budget) || 0,
     spent: 0,
@@ -176,9 +225,10 @@ router.post('/', (req, res) => {
     startDate: new Date().toISOString().split('T')[0],
     estimatedEndDate: "2027-12-31",
     status: "Pending Acceptance", // Starts in Pending Acceptance state until Site Engineer accepts
-    engineerInCharge: engineerInCharge || "Unassigned",
-    acceptedBy: "",
-    acceptedByEmail: "",
+    engineerInCharge: resolvedEngName,
+    engineerEmail: resolvedEngEmail,
+    acceptedBy: resolvedEngName !== 'Unassigned' ? resolvedEngName : "",
+    acceptedByEmail: resolvedEngEmail,
     type: type || "Building",
     specifications: specifications || {},
     photos: []
@@ -416,6 +466,17 @@ router.patch('/:id/tasks/:taskId', (req, res) => {
     });
   }
 
+  // Trigger Admin notification if task has photo evidence or is awaiting review
+  if (typeof db.addNotification === 'function' && (task.photos?.length > 0 || task.status === 'Completed' || task.status === 'Awaiting Approval')) {
+    db.addNotification({
+      title: 'Task Stage Submitted for Review',
+      message: `${proj.acceptedBy || 'Site Engineer'} completed "${task.name}" on "${proj.name}". Review & approval required.`,
+      type: 'task',
+      targetRole: 'admin',
+      link: '/admin/projects'
+    });
+  }
+
   db.save();
   res.json({ success: true, message: 'Task updated successfully', task, project: proj });
 });
@@ -435,8 +496,9 @@ router.patch('/:id/photos/:photoId/status', (req, res) => {
   targetPhoto.reviewedAt = new Date().toISOString().split('T')[0];
 
   // Also sync status back to corresponding task if linked
+  let matchedTask = null;
   if (targetPhoto.taskId && proj.tasks) {
-    const matchedTask = proj.tasks.find(t => t.id === targetPhoto.taskId);
+    matchedTask = proj.tasks.find(t => t.id === targetPhoto.taskId);
     if (matchedTask) {
       if (status === 'Approved') {
         matchedTask.status = 'Completed';
@@ -446,6 +508,18 @@ router.patch('/:id/photos/:photoId/status', (req, res) => {
         matchedTask.adminRemark = targetPhoto.adminRemark;
       }
     }
+  }
+
+  // Trigger Site Engineer notification
+  if (status === 'Approved' && typeof db.addNotification === 'function') {
+    db.addNotification({
+      title: 'Task Stage Approved by Admin!',
+      message: `Admin approved "${matchedTask?.name || 'Task'}" on "${proj.name}". Project progress advanced!`,
+      type: 'task',
+      targetRole: 'site_engineer',
+      targetEmail: proj.acceptedByEmail || proj.engineerEmail || '',
+      link: '/site/tasks'
+    });
   }
 
   db.save();

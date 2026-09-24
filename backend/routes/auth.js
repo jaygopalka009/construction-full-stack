@@ -86,6 +86,22 @@ router.post('/register', (req, res) => {
   };
 
   db.users.push(newUser);
+
+  // Sync directly to engineers collection
+  if (!Array.isArray(db.engineers)) db.engineers = [];
+  if (!db.engineers.some(e => (e.email || '').toLowerCase() === email.trim().toLowerCase())) {
+    db.engineers.push({
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      phone: newUser.phone,
+      role: 'site_engineer',
+      assignedProjectId: newUser.projectId,
+      avatar: newUser.avatar,
+      createdAt: new Date().toISOString()
+    });
+  }
+
   if (typeof db.save === 'function') db.save();
 
   const token = jwt.sign(
@@ -105,12 +121,14 @@ router.post('/register', (req, res) => {
 // GET /api/auth/users
 router.get('/users', (req, res) => {
   const combined = [...(db.admins || []), ...(db.users || [])];
-  res.json({ success: true, users: combined, admins: db.admins, engineers: db.users });
+  res.json({ success: true, users: combined, admins: db.admins, engineers: db.engineers || db.users });
 });
 
-// GET /api/auth/engineers - Get list of all Site Engineers
+// GET /api/auth/engineers - Get list of all Site Engineers from engineers collection
 router.get('/engineers', (req, res) => {
-  const engineers = db.users.filter(u => u.role === 'site_engineer');
+  const engineers = (db.engineers && db.engineers.length > 0) 
+    ? db.engineers 
+    : (db.users || []).filter(u => u.role === 'site_engineer');
   res.json({ success: true, engineers });
 });
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Building2, IndianRupee, AlertTriangle, CheckCircle, XCircle, 
   Package, FileCheck, Plus, RefreshCw, TrendingUp, Users, Wrench, FileText, CheckCircle2, Clock, MapPin, User, HardHat, Camera, Phone, Image,
-  CreditCard, DollarSign, Send, Trash2, Eye
+  CreditCard, DollarSign, Send, Trash2, Eye, Briefcase, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Check, X, MessageSquare, ChevronLeft, ChevronRight } from 'react-feather';
 import { formatCurrency } from '../utils/formatters';
@@ -54,6 +54,7 @@ export default function AdminDashboard({
   const [viewPhotoIndex, setViewPhotoIndex] = useState(0);
   const [projectTabFilter, setProjectTabFilter] = useState('All');
   const [expandedProjects, setExpandedProjects] = useState({});
+  const [expandedDprs, setExpandedDprs] = useState({});
   const [rejectingTask, setRejectingTask] = useState(null);
   const [taskRejectRemark, setTaskRejectRemark] = useState('');
 
@@ -63,10 +64,13 @@ export default function AdminDashboard({
   const [paymentNote, setPaymentNote] = useState('');
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [advanceData, setAdvanceData] = useState({
+    projectId: '',
+    projectName: '',
     engineerEmail: '',
     engineerName: '',
-    amount: '',
-    paymentMode: 'UPI / Bank Transfer',
+    amountVal: '',
+    amountUnit: 'Hajar', // 'Cr', 'Lakh', 'Hajar', 'Hundred', 'Rupees'
+    paymentMode: 'Cash in Hand',
     notes: 'Site petty cash advance'
   });
   const [expenseFilterTab, setExpenseFilterTab] = useState('All');
@@ -96,13 +100,14 @@ export default function AdminDashboard({
   const [newMat, setNewMat] = useState({ name: '', stock: '', unit: 'Bags', unitCost: '', requiredQuantity: '' });
   const [newExp, setNewExp] = useState({ project: '', expenseType: 'Material Purchase', amount: '', date: new Date().toISOString().split('T')[0], status: 'Paid' });
 
-  // Helper calculation for budget multiplier
+  // Helper calculation for currency multiplier (Cr, Lakh, Hajar/Thousand, Hundred, Rupees)
   const getBudgetInRupees = (val, unit) => {
     const num = parseFloat(val) || 0;
-    if (unit === 'Cr') return num * 10000000;
-    if (unit === 'Lakh') return num * 100000;
-    if (unit === 'Thousand') return num * 1000;
-    return num;
+    if (unit === 'Cr') return Math.round(num * 10000000);
+    if (unit === 'Lakh') return Math.round(num * 100000);
+    if (unit === 'Thousand' || unit === 'Hajar') return Math.round(num * 1000);
+    if (unit === 'Hundred') return Math.round(num * 100);
+    return Math.round(num);
   };
 
   // Keep local project list synced with backend projects prop
@@ -134,68 +139,8 @@ export default function AdminDashboard({
   const totalWorkersCount = workerList.length;
   const presentWorkersCount = workerList.filter(w => w.status === 'Present').length;
   const absentWorkersCount = workerList.filter(w => w.status === 'Absent').length;
-  // Aggregate all task operational expenses from all projects and tasks
-  const taskExpensesList = React.useMemo(() => {
-    const list = [];
-    (tasks || []).forEach(t => {
-      const taskProj = (projects || []).find(p => p.id === t.projectId || p.name === t.project);
-      const projName = taskProj?.name || t.project || 'Site Project';
-
-      // 1. Labor Cost expense item
-      if (Number(t.laborCost) > 0) {
-        const workerInfo = Array.isArray(t.laborDetails) && t.laborDetails.length > 0
-          ? t.laborDetails.map(l => `${l.role} (${l.count})`).join(', ')
-          : `${t.laborCount || 1} Worker(s)`;
-
-        list.push({
-          id: `exp_labor_${t.id}`,
-          taskId: t.id,
-          project: projName,
-          expenseType: 'Site Labor Wages',
-          category: 'Labor',
-          details: `${t.name} • ${workerInfo}`,
-          amount: Number(t.laborCost),
-          date: t.completedAt ? t.completedAt.split('T')[0] : (taskProj?.startDate || new Date().toISOString().split('T')[0]),
-          status: t.status === 'Completed' ? 'Paid' : (t.status === 'Awaiting Approval' ? 'Pending Approval' : 'Approved')
-        });
-      }
-
-      // 2. Material Cost expense item
-      if (Number(t.materialCost) > 0) {
-        const matInfo = t.materialsSummary || (Array.isArray(t.materialsUsed) ? t.materialsUsed.map(m => `${m.name}: ${m.quantity} ${m.unit}`).join(', ') : 'Materials');
-        list.push({
-          id: `exp_mat_${t.id}`,
-          taskId: t.id,
-          project: projName,
-          expenseType: 'Material Consumption',
-          category: 'Materials',
-          details: `${t.name} • ${matInfo}`,
-          amount: Number(t.materialCost),
-          date: t.completedAt ? t.completedAt.split('T')[0] : (taskProj?.startDate || new Date().toISOString().split('T')[0]),
-          status: t.status === 'Completed' ? 'Paid' : (t.status === 'Awaiting Approval' ? 'Pending Approval' : 'Approved')
-        });
-      }
-
-      // 3. Overall operational cost if labor and material are 0 but totalCost > 0
-      if (!t.laborCost && !t.materialCost && Number(t.totalCost) > 0) {
-        list.push({
-          id: `exp_stage_${t.id}`,
-          taskId: t.id,
-          project: projName,
-          expenseType: 'Stage Operational Expense',
-          category: 'Operational',
-          details: t.name,
-          amount: Number(t.totalCost),
-          date: taskProj?.startDate || new Date().toISOString().split('T')[0],
-          status: t.status === 'Completed' ? 'Paid' : (t.status === 'Awaiting Approval' ? 'Pending Approval' : 'Approved')
-        });
-      }
-    });
-
-    return list;
-  }, [tasks, projects]);
-
-  const allExpenses = [...taskExpensesList, ...expenseList];
+  // Clean expenses list: Real site claims and wallet advance transfers only
+  const allExpenses = (expenseList || []).filter(e => !String(e.id || '').startsWith('task_exp_') && e.category !== 'Task Operational Cost');
   const totalExpensesAmount = allExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
   // Collect all photos from all projects AND tasks for the Photo Approvals view
@@ -315,6 +260,9 @@ export default function AdminDashboard({
       progress: 0,
       status: 'Pending Acceptance',
       engineerInCharge: newProj.engineerInCharge || 'Unassigned',
+      engineerEmail: newProj.engineerEmail || '',
+      acceptedBy: (newProj.engineerInCharge && newProj.engineerInCharge !== 'Unassigned') ? newProj.engineerInCharge : '',
+      acceptedByEmail: newProj.engineerEmail || '',
       specifications: specs
     };
 
@@ -337,6 +285,7 @@ export default function AdminDashboard({
       clientPhone: '',
       location: '',
       engineerInCharge: 'Unassigned',
+      engineerEmail: '',
       totalBuildings: '1 Building',
       floorsCount: 'G+7 Floors',
       buildingBhk: '2 BHK',
@@ -1209,12 +1158,19 @@ export default function AdminDashboard({
                     type="button"
                     className="btn btn-primary"
                     onClick={() => {
+                      const firstP = (projects && projects.length > 0) ? projects[0] : null;
+                      const hEmail = firstP?.acceptedByEmail || (firstP?.engineerInCharge?.includes('@') ? firstP.engineerInCharge : '');
+                      const hName = firstP?.acceptedBy || firstP?.engineerInCharge || '';
                       const firstEng = (engineers && engineers.length > 0) ? engineers[0] : null;
+
                       setAdvanceData({
-                        engineerEmail: firstEng?.email || '',
-                        engineerName: firstEng?.name || '',
-                        amount: '',
-                        paymentMode: 'UPI / Bank Transfer',
+                        projectId: firstP?.id || '',
+                        projectName: firstP?.name || '',
+                        engineerEmail: hEmail || firstEng?.email || '',
+                        engineerName: hName || firstEng?.name || 'Site Engineer',
+                        amountVal: '',
+                        amountUnit: 'Hajar',
+                        paymentMode: 'Cash in Hand',
                         notes: 'Site petty cash advance'
                       });
                       setShowAdvanceModal(true);
@@ -1323,7 +1279,6 @@ export default function AdminDashboard({
                         <th style={{ padding: '12px 14px' }}>Project</th>
                         <th style={{ padding: '12px 14px' }}>Expense Title & Details</th>
                         <th style={{ padding: '12px 14px' }}>Category</th>
-                        <th style={{ padding: '12px 14px' }}>Receipt / Bill</th>
                         <th style={{ padding: '12px 14px' }}>Amount (₹)</th>
                         <th style={{ padding: '12px 14px', textAlign: 'center' }}>Wallet Action / Status</th>
                       </tr>
@@ -1331,6 +1286,9 @@ export default function AdminDashboard({
                     <tbody>
                       {filteredExpenses.map((exp, idx) => {
                         const isPaid = exp.status === 'Paid';
+                        const linkedTask = exp.taskId ? tasks.find(t => t.id === exp.taskId) : null;
+                        const isTaskApproved = !exp.taskId || (linkedTask && (linkedTask.status === 'Completed' || linkedTask.adminRemark === 'Approved by Admin'));
+
                         return (
                           <tr key={exp.id || idx} style={{ borderBottom: '1px solid #e2e8f0', background: isPaid ? '#ffffff' : '#fffbeb' }}>
                             <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', color: '#64748b', fontSize: '0.82rem' }}>
@@ -1364,23 +1322,6 @@ export default function AdminDashboard({
                               </span>
                             </td>
                             <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                              {exp.receiptPhoto ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setViewPhotoGallery([exp.receiptPhoto]);
-                                    setViewPhotoIndex(0);
-                                    setViewPhotoUrl(exp.receiptPhoto);
-                                  }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', color: '#2563eb', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer' }}
-                                >
-                                  <Eye size={13} /> View Bill
-                                </button>
-                              ) : (
-                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>No Receipt</span>
-                              )}
-                            </td>
-                            <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                               <strong style={{ fontSize: '1rem', color: isPaid ? '#059669' : '#b45309' }}>
                                 ₹{Number(exp.amount).toLocaleString('en-IN')}
                               </strong>
@@ -1396,7 +1337,7 @@ export default function AdminDashboard({
                                   className="btn btn-sm btn-primary"
                                   onClick={() => {
                                     setPayingExpense(exp);
-                                    setPaymentMode('UPI / Bank Transfer');
+                                    setPaymentMode('Cash in Hand');
                                     setPaymentNote('');
                                   }}
                                   style={{ background: '#059669', borderColor: '#047857', padding: '6px 14px', fontWeight: 700, fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -1444,222 +1385,296 @@ export default function AdminDashboard({
             </div>
           </div>
 
-          {/* DPR Reports List */}
+          {/* DPR Reports List (Collapsible Accordion by Default) */}
           {dprs.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {dprs.map((dpr, idx) => {
                 const reportPhotos = Array.isArray(dpr.photos) && dpr.photos.length > 0 
                   ? dpr.photos 
                   : (dpr.sitePhoto ? [dpr.sitePhoto] : []);
                 const matchingProject = allProjects.find(p => p.id === dpr.projectId || p.name === dpr.projectName);
                 const engineerPhone = dpr.engineerPhone || matchingProject?.clientPhone || matchingProject?.contactPhone || '9876543210';
+                const dprKey = dpr.id || `dpr_${idx}`;
+                const isExpanded = !!expandedDprs[dprKey];
+                const totalExp = Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0) + Number(dpr.machineryCharge || 0))));
 
                 return (
                   <div 
-                    key={dpr.id || idx} 
+                    key={dprKey} 
                     className="glass-card" 
-                    style={{ padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
+                    style={{ 
+                      padding: '14px 18px', 
+                      borderRadius: '10px', 
+                      border: '1px solid #e2e8f0', 
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+                      background: '#ffffff',
+                      transition: 'all 0.2s ease'
+                    }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
-                            {dpr.projectName}
-                          </span>
-                          {matchingProject?.location && (
-                            <span style={{ fontSize: '0.78rem', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <MapPin size={13} /> {matchingProject.location}
+                    {/* Compact Top Header Bar with Side Arrow Dropdown */}
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      flexWrap: 'wrap', 
+                      gap: '12px' 
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1, minWidth: '260px' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+                              {dpr.projectName}
+                            </span>
+                            {matchingProject?.location && (
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <MapPin size={12} /> {matchingProject.location}
+                              </span>
+                            )}
+                            <span className="badge badge-emerald" style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px' }}>
+                              Site DPR
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                            Date: <strong>{dpr.date}</strong> • Engineer: <strong style={{ color: '#1e293b' }}>{dpr.engineerName || matchingProject?.acceptedBy || 'Site Engineer'}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Side Stats & Dropdown Arrow Button */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.68rem', color: '#64748b', display: 'block', fontWeight: 600 }}>Total Expense</span>
+                          <strong style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 800 }}>
+                            ₹{totalExp.toLocaleString('en-IN')}
+                          </strong>
+                        </div>
+
+                        <div style={{ textAlign: 'right', minWidth: '85px' }}>
+                          <span style={{ fontSize: '0.68rem', color: '#64748b', display: 'block', fontWeight: 600 }}>Progress</span>
+                          <strong style={{ fontSize: '0.92rem', color: '#d97706', fontWeight: 800 }}>
+                            {dpr.progress !== undefined && dpr.progress !== null ? `${dpr.progress}%` : `${matchingProject?.progress || 0}%`}
+                          </strong>
+                        </div>
+
+                        {/* Collapsible Dropdown Arrow Button */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedDprs(prev => ({ ...prev, [dprKey]: !prev[dprKey] }))}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: isExpanded ? '#f1f5f9' : '#eff6ff',
+                            border: '1px solid ' + (isExpanded ? '#cbd5e1' : '#bfdbfe'),
+                            color: isExpanded ? '#334155' : '#2563eb',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title={isExpanded ? 'Click to collapse details' : 'Click to view full report details'}
+                        >
+                          <span>{isExpanded ? 'Collapse' : 'Details'}</span>
+                          {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Single-line Summary preview when collapsed */}
+                    {!isExpanded && (
+                      <div style={{ 
+                        marginTop: '10px', 
+                        paddingTop: '8px', 
+                        borderTop: '1px dashed #e2e8f0', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        fontSize: '0.8rem',
+                        color: '#475569',
+                        flexWrap: 'wrap',
+                        gap: '8px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '650px' }}>
+                          <span style={{ fontWeight: 700, color: '#334155' }}>Work Executed:</span>
+                          <span style={{ color: '#0f172a' }}>{dpr.workDone}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.74rem', color: '#64748b' }}>
+                          <span>Workforce: <strong style={{ color: '#059669' }}>{dpr.laborCount || 20} Workers</strong></span>
+                          {reportPhotos.length > 0 && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#2563eb', fontWeight: 600 }}>
+                              <Camera size={12} /> {reportPhotos.length} Photo{reportPhotos.length > 1 ? 's' : ''}
                             </span>
                           )}
-                          <span className="badge badge-emerald" style={{ fontSize: '0.72rem', fontWeight: 700 }}>
-                            Submitted from Site
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
-                          Report Date: <strong>{dpr.date}</strong> • ID: <span style={{ fontFamily: 'monospace' }}>{dpr.id}</span>
                         </div>
                       </div>
+                    )}
 
-                      {/* Site Progress Badge & Bar */}
-                      <div style={{ minWidth: '180px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Site Progress:</span>
-                          <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#d97706' }}>
-                            {dpr.progress !== undefined && dpr.progress !== null ? `${dpr.progress}%` : `${matchingProject?.progress || 0}%`}
-                          </span>
-                        </div>
-                        <div className="progress-track" style={{ height: '8px', width: '100%', background: '#fef3c7' }}>
-                          <div 
-                            className="progress-fill" 
-                            style={{ 
-                              width: `${dpr.progress !== undefined && dpr.progress !== null ? dpr.progress : (matchingProject?.progress || 0)}%`,
-                              background: '#d97706' 
+                    {/* Full Detailed Report Section (Shown ONLY when clicked / expanded) */}
+                    {isExpanded && (
+                      <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #e2e8f0', animation: 'fadeIn 0.2s ease-in-out' }}>
+                        {/* Site Engineer Info with Direct Call Button */}
+                        <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ background: '#eff6ff', padding: '6px', borderRadius: '50%' }}>
+                              <User size={16} color="#2563eb" />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a' }}>
+                                Site Engineer: {dpr.engineerName || matchingProject?.acceptedBy || 'Site Engineer'}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                Phone: {engineerPhone}
+                              </div>
+                            </div>
+                          </div>
+
+                          <a
+                            href={`tel:${engineerPhone}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: '#059669',
+                              color: '#ffffff',
+                              textDecoration: 'none',
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700
                             }}
-                          ></div>
+                            title="Direct Call to Site Engineer"
+                          >
+                            <Phone size={12} /> Direct Call ({engineerPhone})
+                          </a>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Site Engineer Info with Direct Call Button */}
-                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ background: '#eff6ff', padding: '6px', borderRadius: '50%' }}>
-                          <User size={18} color="#2563eb" />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
-                            Site Engineer: {dpr.engineerName || matchingProject?.acceptedBy || 'Site Engineer'}
+                        {/* Work Completed Content */}
+                        <div style={{ marginBottom: '12px' }}>
+                          <div style={{ fontSize: '0.76rem', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>
+                            Work Executed on Site
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                            Phone: {engineerPhone}
+                          <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#1e293b', lineHeight: 1.5 }}>
+                            {dpr.workDone}
                           </div>
                         </div>
-                      </div>
 
-                      <a
-                        href={`tel:${engineerPhone}`}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          background: '#059669',
-                          color: '#ffffff',
-                          textDecoration: 'none',
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          fontSize: '0.78rem',
-                          fontWeight: 700,
-                          boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)'
-                        }}
-                        title="Direct Call to Site Engineer"
-                      >
-                        <Phone size={13} /> Direct Call ({engineerPhone})
-                      </a>
-                    </div>
-
-                    {/* Work Completed Content */}
-                    <div style={{ marginBottom: '14px' }}>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>
-                        Work Executed on Site
-                      </div>
-                      <div style={{ background: '#ffffff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', color: '#1e293b', lineHeight: 1.5 }}>
-                        {dpr.workDone}
-                      </div>
-                    </div>
-
-                    {/* Materials Consumed & Site Workforce */}
-                    <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#0f172a' }}>
-                        <HardHat size={15} color="#059669" />
-                        <strong>Workforce on Site:</strong> <span style={{ color: '#059669', fontWeight: 700 }}>{dpr.laborCount || 20} Workers</span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#0f172a', flex: 1, minWidth: '240px' }}>
-                        <Package size={15} color="#d97706" />
-                        <strong>Daily Materials Consumed:</strong>
-                        <span style={{ color: '#b45309', fontWeight: 600, background: '#fef3c7', padding: '3px 8px', borderRadius: '4px', border: '1px solid #fde68a' }}>
-                          {dpr.materialsUsed || 'Standard Construction Materials'}
-                        </span>
-                      </div>
-
-                      {dpr.remarks && dpr.remarks !== 'None' && (
-                        <div style={{ fontSize: '0.78rem', color: '#64748b', width: '100%', marginTop: '2px' }}>
-                          <strong>Notes / Remarks:</strong> {dpr.remarks}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Dedicated Expense Breakdown Field */}
-                    <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #cbd5e1', marginBottom: '14px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <IndianRupee size={15} color="#059669" /> Daily Site Operational Expense:
-                        </span>
-                        <span style={{ fontSize: '1rem', fontWeight: 900, color: '#059669', background: '#ecfdf5', padding: '3px 12px', borderRadius: '6px', border: '1.5px solid #a7f3d0' }}>
-                          Total Expense: ₹{Number(dpr.totalCost || ((Number(dpr.materialCost || 0) + Number(dpr.laborCost || 0) + Number(dpr.machineryCharge || 0)))).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: dpr.machineryUsed && dpr.machineryUsed !== 'None' ? 'repeat(auto-fit, minmax(180px, 1fr))' : '1fr 1fr', gap: '10px' }}>
-                        <div style={{ background: '#fffbeb', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fde68a' }}>
-                          <div style={{ fontSize: '0.74rem', color: '#92400e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Package size={13} /> Material Cost:
+                        {/* Materials Consumed & Site Workforce */}
+                        <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#0f172a' }}>
+                            <HardHat size={14} color="#059669" />
+                            <strong>Workforce on Site:</strong> <span style={{ color: '#059669', fontWeight: 700 }}>{dpr.laborCount || 20} Workers</span>
                           </div>
-                          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#b45309', marginTop: '2px' }}>
-                            ₹{Number(dpr.materialCost || 0).toLocaleString('en-IN')}
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#0f172a', flex: 1, minWidth: '220px' }}>
+                            <Package size={14} color="#d97706" />
+                            <strong>Daily Materials Consumed:</strong>
+                            <span style={{ color: '#b45309', fontWeight: 600, background: '#fef3c7', padding: '2px 8px', borderRadius: '4px', border: '1px solid #fde68a' }}>
+                              {dpr.materialsUsed || 'Standard Construction Materials'}
+                            </span>
                           </div>
-                          {Array.isArray(dpr.materialsBreakdown) && dpr.materialsBreakdown.length > 0 && (
-                            <div style={{ fontSize: '0.7rem', color: '#78350f', marginTop: '3px' }}>
-                              {dpr.materialsBreakdown.map(m => `${m.name}: ${m.quantity} ${m.unit}`).join(', ')}
+
+                          {dpr.remarks && dpr.remarks !== 'None' && (
+                            <div style={{ fontSize: '0.76rem', color: '#64748b', width: '100%', marginTop: '2px' }}>
+                              <strong>Notes / Remarks:</strong> {dpr.remarks}
                             </div>
                           )}
                         </div>
 
-                        <div style={{ background: '#eff6ff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
-                          <div style={{ fontSize: '0.74rem', color: '#1e40af', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Users size={13} /> Labor Wages:
+                        {/* Dedicated Expense Breakdown Field */}
+                        <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <IndianRupee size={14} color="#059669" /> Daily Site Operational Expense Breakdown:
+                            </span>
+                            <span style={{ fontSize: '0.92rem', fontWeight: 900, color: '#059669', background: '#ecfdf5', padding: '2px 10px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
+                              Total: ₹{totalExp.toLocaleString('en-IN')}
+                            </span>
                           </div>
-                          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#1d4ed8', marginTop: '2px' }}>
-                            ₹{Number(dpr.laborCost || 0).toLocaleString('en-IN')}
-                          </div>
-                          <div style={{ fontSize: '0.7rem', color: '#2563eb', marginTop: '3px' }}>
-                            {dpr.laborCount || 20} Workers on site
-                            {Array.isArray(dpr.laborBreakdown) && dpr.laborBreakdown.length > 0 && (
-                              <div style={{ color: '#64748b', fontSize: '0.67rem', marginTop: '2px' }}>
-                                {dpr.laborBreakdown.map(l => `${l.role}: ${l.count} @ ₹${l.dailyWage}`).join(' • ')}
+
+                          <div style={{ display: 'grid', gridTemplateColumns: dpr.machineryUsed && dpr.machineryUsed !== 'None' ? 'repeat(auto-fit, minmax(170px, 1fr))' : '1fr 1fr', gap: '10px' }}>
+                            <div style={{ background: '#fffbeb', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fde68a' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#92400e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Package size={12} /> Material Cost:
+                              </div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#b45309', marginTop: '2px' }}>
+                                ₹{Number(dpr.materialCost || 0).toLocaleString('en-IN')}
+                              </div>
+                              {Array.isArray(dpr.materialsBreakdown) && dpr.materialsBreakdown.length > 0 && (
+                                <div style={{ fontSize: '0.68rem', color: '#78350f', marginTop: '3px' }}>
+                                  {dpr.materialsBreakdown.map(m => `${m.name}: ${m.quantity} ${m.unit}`).join(', ')}
+                                </div>
+                              )}
+                            </div>
+
+                            <div style={{ background: '#eff6ff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#1e40af', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Users size={12} /> Labor Wages:
+                              </div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1d4ed8', marginTop: '2px' }}>
+                                ₹{Number(dpr.laborCost || 0).toLocaleString('en-IN')}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: '#2563eb', marginTop: '3px' }}>
+                                {dpr.laborCount || 20} Workers on site
+                                {Array.isArray(dpr.laborBreakdown) && dpr.laborBreakdown.length > 0 && (
+                                  <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px' }}>
+                                    {dpr.laborBreakdown.map(l => `${l.role}: ${l.count} @ ₹${l.dailyWage}`).join(' • ')}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {dpr.machineryUsed && dpr.machineryUsed !== 'None' && (
+                              <div style={{ background: '#f0f9ff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
+                                <div style={{ fontSize: '0.72rem', color: '#0369a1', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Briefcase size={12} /> Machinery Charge:
+                                </div>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0284c7', marginTop: '2px' }}>
+                                  ₹{Number(dpr.machineryCharge || 0).toLocaleString('en-IN')}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#0369a1', marginTop: '3px' }}>
+                                  {dpr.machineryUsed}
+                                </div>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {dpr.machineryUsed && dpr.machineryUsed !== 'None' && (
-                          <div style={{ background: '#f0f9ff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
-                            <div style={{ fontSize: '0.74rem', color: '#0369a1', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Briefcase size={13} /> Machinery Charge:
+                        {/* Photo Evidence Gallery */}
+                        {reportPhotos.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Camera size={13} color="#2563eb" /> Photo Evidence Attached ({reportPhotos.length})
                             </div>
-                            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0284c7', marginTop: '2px' }}>
-                              ₹{Number(dpr.machineryCharge || 0).toLocaleString('en-IN')}
-                            </div>
-                            <div style={{ fontSize: '0.7rem', color: '#0369a1', marginTop: '3px' }}>
-                              {dpr.machineryUsed}
+                            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '2px' }}>
+                              {reportPhotos.map((photoUrl, pIdx) => (
+                                <div 
+                                  key={pIdx}
+                                  onClick={() => {
+                                    setViewPhotoGallery(reportPhotos);
+                                    setViewPhotoIndex(pIdx);
+                                    setViewPhotoUrl(photoUrl);
+                                  }}
+                                  style={{ width: '110px', height: '75px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'pointer', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+                                >
+                                  <img 
+                                    src={photoUrl} 
+                                    alt={`DPR Photo ${pIdx + 1}`} 
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="110" height="75" fill="%23f1f5f9"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="%2364748b">DPR Photo</text></svg>';
+                                    }}
+                                  />
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    {/* Photo Evidence Gallery */}
-                    {reportPhotos.length > 0 && (
-                      <div>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Camera size={14} color="#2563eb" /> Photo Evidence Attached ({reportPhotos.length})
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '2px' }}>
-                          {reportPhotos.map((photoUrl, pIdx) => (
-                            <div 
-                              key={pIdx}
-                              onClick={() => {
-                                setViewPhotoGallery(reportPhotos);
-                                setViewPhotoIndex(pIdx);
-                                setViewPhotoUrl(photoUrl);
-                              }}
-                              style={{ width: '120px', height: '85px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'pointer', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-                            >
-                              <img 
-                                src={photoUrl} 
-                                alt={`DPR Photo ${pIdx + 1}`} 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="85" fill="%23f1f5f9"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="11" fill="%2364748b">DPR Photo</text></svg>';
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
                     )}
-
                   </div>
                 );
               })}
@@ -2037,10 +2052,11 @@ export default function AdminDashboard({
                       onChange={e => setNewProj({...newProj, budgetUnit: e.target.value})}
                       style={{ padding: '10px 12px', fontSize: '0.9rem', borderRadius: '8px' }}
                     >
-                      <option value="Cr">Cr (Crore)</option>
-                      <option value="Lakh">Lakh</option>
-                      <option value="Thousand">Thousand</option>
-                      <option value="Rupees">Rupees (₹ Direct)</option>
+                      <option value="Cr">Crore (Cr)</option>
+                      <option value="Lakh">Lakh (L)</option>
+                      <option value="Thousand">Thousand (K)</option>
+                      <option value="Hundred">Hundred</option>
+                      <option value="Rupees">Rupees (₹)</option>
                     </select>
                   </div>
                 </div>
@@ -2110,29 +2126,6 @@ export default function AdminDashboard({
                   required 
                   style={{ padding: '10px 14px', fontSize: '0.9rem', borderRadius: '8px' }}
                 />
-              </div>
-
-              {/* 6. Assign Site Engineer Dropdown */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>
-                  Assign Site Engineer
-                </label>
-                <select
-                  className="form-control"
-                  value={newProj.engineerInCharge}
-                  onChange={e => setNewProj({...newProj, engineerInCharge: e.target.value})}
-                  style={{ padding: '10px 12px', fontSize: '0.9rem', borderRadius: '8px' }}
-                >
-                  <option value="Unassigned">Open for Any Site Engineer (First to Accept)</option>
-                  {engineers.map(eng => (
-                    <option key={eng.id || eng.email} value={eng.name}>
-                      {eng.name} ({eng.email})
-                    </option>
-                  ))}
-                </select>
-                <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px', display: 'block' }}>
-                  Choose a specific engineer, or leave open so any registered engineer can accept it.
-                </span>
               </div>
 
               {/* Form Action Buttons */}
@@ -2229,9 +2222,10 @@ export default function AdminDashboard({
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>Budget Scale</label>
                   <select className="form-control" value={newProj.budgetUnit} onChange={e => setNewProj({...newProj, budgetUnit: e.target.value})} style={{ padding: '8px 12px', fontSize: '0.9rem', borderRadius: '8px' }}>
-                    <option value="Cr">Cr (Crore)</option>
-                    <option value="Lakh">Lakh</option>
-                    <option value="Thousand">Thousand</option>
+                    <option value="Cr">Crore (Cr)</option>
+                    <option value="Lakh">Lakh (L)</option>
+                    <option value="Thousand">Thousand (K)</option>
+                    <option value="Hundred">Hundred</option>
                     <option value="Rupees">Rupees (₹)</option>
                   </select>
                 </div>
@@ -2752,10 +2746,9 @@ export default function AdminDashboard({
                   className="input-field"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
                 >
-                  <option value="UPI / Bank Transfer">UPI / Bank Transfer</option>
                   <option value="Cash in Hand">Cash in Hand</option>
                   <option value="Company Cheque">Company Cheque</option>
-                  <option value="Company Debit Card">Company Debit Card</option>
+                  <option value="UPI / Bank Transfer">UPI / Bank Transfer</option>
                 </select>
               </div>
 
@@ -2804,7 +2797,7 @@ export default function AdminDashboard({
       {/* Advance Cash Modal */}
       {showAdvanceModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
-          <div style={{ background: '#ffffff', width: '100%', maxWidth: '480px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          <div style={{ background: '#ffffff', width: '100%', maxWidth: '520px', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
             <div style={{ padding: '18px 22px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2826,15 +2819,18 @@ export default function AdminDashboard({
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!advanceData.engineerEmail || !advanceData.amount || Number(advanceData.amount) <= 0) {
-                  alert('Please select an engineer and enter a valid amount.');
+                const totalRupees = getBudgetInRupees(advanceData.amountVal, advanceData.amountUnit);
+                if (!advanceData.engineerEmail || totalRupees <= 0) {
+                  alert('Please enter a valid engineer email and amount.');
                   return;
                 }
                 if (onSendWalletAdvance) {
                   await onSendWalletAdvance({
+                    projectId: advanceData.projectId,
+                    projectName: advanceData.projectName,
                     engineerEmail: advanceData.engineerEmail,
                     engineerName: advanceData.engineerName,
-                    amount: Number(advanceData.amount),
+                    amount: totalRupees,
                     paymentMode: advanceData.paymentMode,
                     notes: advanceData.notes
                   });
@@ -2843,61 +2839,133 @@ export default function AdminDashboard({
               }}
               style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}
             >
+              {/* 1. Project Selection (Auto-populates Handler Engineer Email) */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
-                  Select Site Engineer *
+                  Select Project (Auto-fills Site Engineer Email)
                 </label>
-                {engineers && engineers.length > 0 ? (
-                  <select
-                    required
-                    value={advanceData.engineerEmail}
-                    onChange={e => {
-                      const selectedEng = engineers.find(eng => eng.email === e.target.value);
+                <select
+                  value={advanceData.projectId}
+                  onChange={e => {
+                    const pId = e.target.value;
+                    const selectedP = projects.find(p => String(p.id) === String(pId));
+                    if (selectedP) {
+                      // 1. Direct email stored on project
+                      let email = selectedP.engineerEmail || selectedP.acceptedByEmail || '';
+                      if (!email && selectedP.engineerInCharge && selectedP.engineerInCharge.includes('@')) {
+                        email = selectedP.engineerInCharge;
+                      }
+                      // 2. Try match from registered engineers
+                      const matchedEng = engineers.find(eng => 
+                        (selectedP.acceptedByEmail && eng.email?.toLowerCase() === selectedP.acceptedByEmail.toLowerCase()) ||
+                        (selectedP.engineerEmail && eng.email?.toLowerCase() === selectedP.engineerEmail.toLowerCase()) ||
+                        (selectedP.acceptedBy && eng.name?.toLowerCase() === selectedP.acceptedBy.toLowerCase()) ||
+                        (selectedP.engineerInCharge && (eng.name?.toLowerCase() === selectedP.engineerInCharge.toLowerCase() || eng.email?.toLowerCase() === selectedP.engineerInCharge.toLowerCase()))
+                      );
+                      if (!email && matchedEng) {
+                        email = matchedEng.email;
+                      }
+                      // 3. Fallback: if project still has no email, check if there's any registered engineer
+                      if (!email && engineers.length > 0) {
+                        email = engineers[0].email;
+                      }
+
+                      const hName = matchedEng?.name || selectedP.acceptedBy || selectedP.engineerInCharge || 'Site Engineer';
                       setAdvanceData(prev => ({
                         ...prev,
-                        engineerEmail: e.target.value,
-                        engineerName: selectedEng?.name || 'Site Engineer'
+                        projectId: selectedP.id,
+                        projectName: selectedP.name,
+                        engineerEmail: email,
+                        engineerName: hName
                       }));
-                    }}
-                    className="input-field"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
-                  >
-                    <option value="">-- Choose Site Engineer --</option>
-                    {engineers.map(eng => (
-                      <option key={eng.id || eng.email} value={eng.email}>
-                        {eng.name} ({eng.email})
+                    } else {
+                      setAdvanceData(prev => ({ ...prev, projectId: '', projectName: '' }));
+                    }
+                  }}
+                  className="input-field"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
+                >
+                  <option value="">-- Choose Project to Auto-fill Handler --</option>
+                  {projects.map(p => {
+                    const engDisplay = p.acceptedByEmail || p.engineerEmail || p.acceptedBy || p.engineerInCharge || 'Site Engineer';
+                    return (
+                      <option key={p.id} value={p.id}>
+                        Project #{p.id} - {p.name} ({engDisplay})
                       </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="email"
-                    required
-                    placeholder="Enter Engineer Email"
-                    value={advanceData.engineerEmail}
-                    onChange={e => setAdvanceData(prev => ({ ...prev, engineerEmail: e.target.value, engineerName: e.target.value }))}
-                    className="input-field"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
-                  />
-                )}
+                    );
+                  })}
+                </select>
               </div>
 
+              {/* 2. Site Engineer Email */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
-                  Advance Cash Amount (₹) *
+                  Site Engineer Email *
                 </label>
                 <input
-                  type="number"
-                  min="1"
+                  type="email"
                   required
-                  placeholder="e.g. 10000"
-                  value={advanceData.amount}
-                  onChange={e => setAdvanceData(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="e.g. engineer@gmail.com"
+                  value={advanceData.engineerEmail}
+                  onChange={e => setAdvanceData(prev => ({ ...prev, engineerEmail: e.target.value, engineerName: e.target.value }))}
                   className="input-field"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
                 />
               </div>
 
+              {/* 3. Advance Cash Amount with Scale: Cr, Lakh, Thousand, Hundred, Rupees */}
+              <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
+                  Advance Cash Amount & Currency Scale *
+                </label>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.73rem', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                      Amount Value
+                    </span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      required
+                      placeholder="e.g. 10 or 25"
+                      value={advanceData.amountVal}
+                      onChange={e => setAdvanceData(prev => ({ ...prev, amountVal: e.target.value }))}
+                      className="input-field"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: 700 }}
+                    />
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.73rem', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                      Unit (Scale)
+                    </span>
+                    <select
+                      value={advanceData.amountUnit}
+                      onChange={e => setAdvanceData(prev => ({ ...prev, amountUnit: e.target.value }))}
+                      className="input-field"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', fontWeight: 600, background: '#ffffff' }}
+                    >
+                      <option value="Thousand">Thousand (K)</option>
+                      <option value="Hundred">Hundred</option>
+                      <option value="Rupees">Rupees (₹)</option>
+                      <option value="Lakh">Lakh (L)</option>
+                      <option value="Cr">Crore (Cr)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Live Formatted Total in ₹ */}
+                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Total Cash to Disburse:</span>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#059669' }}>
+                    ₹{getBudgetInRupees(advanceData.amountVal, advanceData.amountUnit).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              {/* 4. Disbursement Mode */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
                   Disbursement Mode
@@ -2908,24 +2976,30 @@ export default function AdminDashboard({
                   className="input-field"
                   style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
                 >
-                  <option value="UPI / Bank Transfer">UPI / Bank Transfer</option>
                   <option value="Cash in Hand">Cash in Hand</option>
+                  <option value="UPI / Bank Transfer">UPI / Bank Transfer</option>
                   <option value="Company Cheque">Company Cheque</option>
                 </select>
               </div>
 
+              {/* 5. Transfer Note */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '5px' }}>
                   Transfer Note
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Advance petty cash for site operations"
+                <select
                   value={advanceData.notes}
                   onChange={e => setAdvanceData(prev => ({ ...prev, notes: e.target.value }))}
                   className="input-field"
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
-                />
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem', background: '#ffffff' }}
+                >
+                  <option value="Site petty cash advance">Site Petty Cash Advance</option>
+                  <option value="Emergency material purchase advance">Emergency Material Purchase</option>
+                  <option value="Labour / Worker weekly wage advance">Labour / Worker Wages</option>
+                  <option value="Machinery fuel & diesel expense">Machinery Fuel & Diesel</option>
+                  <option value="Local transport & delivery charges">Local Transport & Delivery</option>
+                  <option value="Site contingency fund">Site Contingency Fund</option>
+                </select>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>

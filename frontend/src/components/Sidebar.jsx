@@ -1,11 +1,21 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Grid, Briefcase, Package, Users, FileText, CheckSquare, TrendingUp, Clipboard, DollarSign, LogOut, Camera, ChevronDown, ChevronRight
+  Grid, Briefcase, Package, Users, FileText, CheckSquare, TrendingUp, Clipboard, DollarSign, LogOut, Camera, ChevronDown, ChevronRight, Truck
 } from 'react-feather';
 import { CONSTRUCTION_LABOR_CATEGORIES, isWorkerInTrade } from '../utils/laborCategories';
 
-export default function Sidebar({ currentUser, onLogout, hasPendingProjects, workers = [] }) {
+export default function Sidebar({ 
+  currentUser, 
+  onLogout, 
+  hasPendingProjects, 
+  workers = [],
+  projects = [],
+  tasks = [],
+  expenses = [],
+  dprs = [],
+  notifications = []
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = currentUser?.role === 'admin';
@@ -17,22 +27,149 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
   // Keep labor submenu open if on /site/workers
   const [laborMenuOpen, setLaborMenuOpen] = React.useState(true);
 
+  // Track tabs seen by user so opening or clicking immediately removes the red dot
+  const [seenTabs, setSeenTabs] = React.useState(() => {
+    try {
+      const saved = sessionStorage.getItem('erp_seen_tabs');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const markTabSeen = (tabPath) => {
+    if (!tabPath) return;
+    setSeenTabs(prev => {
+      if (!prev.includes(tabPath)) {
+        const next = [...prev, tabPath];
+        try { sessionStorage.setItem('erp_seen_tabs', JSON.stringify(next)); } catch (e) {}
+        return next;
+      }
+      return prev;
+    });
+  };
+
+  // Automatically mark current page as seen whenever route changes
+  React.useEffect(() => {
+    if (location.pathname) {
+      markTabSeen(location.pathname);
+      const allNav = isAdmin ? adminNav : engineerNav;
+      const matched = allNav.find(item => 
+        location.pathname === item.path || 
+        location.pathname.startsWith(item.path) || 
+        item.path.startsWith(location.pathname)
+      );
+      if (matched) {
+        markTabSeen(matched.path);
+      }
+    }
+  }, [location.pathname]);
+
+  // Unread notifications check
+  const unreadNotifs = Array.isArray(notifications) ? notifications.filter(n => !n.read) : [];
+
+  // Admin module indicators for red notification dots
+  const adminHasPendingProjects = (projects || []).some(p => p.status === 'Pending Acceptance');
+  const adminHasPendingTasks = (tasks || []).some(t => t.status === 'Awaiting Approval' || (t.photo && t.status !== 'Completed'));
+  const adminHasPendingExpenses = (expenses || []).some(e => e.status === 'Pending');
+  const adminHasDprs = (dprs || []).length > 0;
+
   const adminNav = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: Grid },
-    { path: '/admin/projects', label: 'Projects & Sites', icon: Briefcase },
-    { path: '/admin/engineers', label: 'Site Engineers', icon: Users },
-    { path: '/admin/expenses', label: 'Expenses & Wallets', icon: DollarSign },
-    { path: '/admin/reports', label: 'Daily Reports', icon: FileText }
+    { 
+      path: '/admin/dashboard', 
+      label: 'Dashboard', 
+      icon: Grid, 
+      hasBadge: unreadNotifs.length > 0 
+    },
+    { 
+      path: '/admin/projects', 
+      label: 'Projects & Sites', 
+      icon: Briefcase, 
+      hasBadge: adminHasPendingProjects || adminHasPendingTasks || unreadNotifs.some(n => n.type === 'project' || n.type === 'task') 
+    },
+    { 
+      path: '/admin/engineers', 
+      label: 'Site Engineers', 
+      icon: Users, 
+      hasBadge: unreadNotifs.some(n => n.type === 'engineer') 
+    },
+    { 
+      path: '/admin/expenses', 
+      label: 'Expenses & Wallets', 
+      icon: DollarSign, 
+      hasBadge: adminHasPendingExpenses || unreadNotifs.some(n => n.type === 'payment' || n.type === 'expense') 
+    },
+    { 
+      path: '/admin/reports', 
+      label: 'Submitted Reports', 
+      icon: FileText, 
+      hasBadge: adminHasDprs || unreadNotifs.some(n => n.type === 'dpr') 
+    }
   ];
 
+  // Site Engineer module indicators for red notification dots
+  const engHasUnfinishedTasks = (tasks || []).some(t => t.status === 'Pending' || t.status === 'In-Progress');
+  const engHasWalletPayment = (expenses || []).some(e => e.status === 'Paid');
+  const engHasDprToday = (dprs || []).some(d => d.date === new Date().toISOString().split('T')[0]);
+  const engHasAbsentWorkers = (workers || []).some(w => w.status === 'Absent');
+
   const engineerNav = [
-    { path: '/site/dashboard', label: 'Dashboard', icon: Grid },
-    { path: '/site/projects', label: 'My Projects', icon: Briefcase, hasBadge: hasPendingProjects },
-    { path: '/site/tasks', label: 'Tasks', icon: CheckSquare },
-    { path: '/site/expenses', label: 'Site Expenses & Wallet', icon: DollarSign },
-    { path: '/site/workers', label: 'Site Labor', icon: Users, isLaborMenu: true },
-    { path: '/site/site-progress', label: 'Site Progress', icon: TrendingUp },
-    { path: '/site/reports', label: 'Daily Reports', icon: Clipboard }
+    { 
+      path: '/site/dashboard', 
+      label: 'Dashboard', 
+      icon: Grid, 
+      hasBadge: unreadNotifs.length > 0 
+    },
+    { 
+      path: '/site/projects', 
+      label: 'My Projects', 
+      icon: Briefcase, 
+      hasBadge: hasPendingProjects || unreadNotifs.some(n => n.type === 'project') 
+    },
+    { 
+      path: '/site/tasks', 
+      label: 'Tasks', 
+      icon: CheckSquare, 
+      hasBadge: engHasUnfinishedTasks || unreadNotifs.some(n => n.type === 'task') 
+    },
+    { 
+      path: '/site/expenses', 
+      label: 'Site Expenses & Wallet', 
+      icon: DollarSign, 
+      hasBadge: engHasWalletPayment || unreadNotifs.some(n => n.type === 'payment') 
+    },
+    { 
+      path: '/site/workers', 
+      label: 'Site Labor', 
+      icon: Users, 
+      isLaborMenu: true, 
+      hasBadge: engHasAbsentWorkers 
+    },
+    // Site Machinery
+    { 
+      path: '/site/machinery', 
+      label: 'Site Machinery', 
+      icon: Truck, 
+      hasBadge: false 
+    },
+    { 
+      path: '/site/site-progress', 
+      label: 'Site Progress', 
+      icon: TrendingUp, 
+      hasBadge: false 
+    },
+    { 
+      path: '/site/reports', 
+      label: 'Daily Report (DPR)', 
+      icon: Clipboard, 
+      hasBadge: !engHasDprToday 
+    },
+    { 
+      path: '/site/submitted-reports', 
+      label: 'Submitted Reports', 
+      icon: FileText, 
+      hasBadge: false 
+    }
   ];
 
   const navItems = isAdmin ? adminNav : engineerNav;
@@ -71,6 +208,7 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
               <div key={item.path} style={{ display: 'flex', flexDirection: 'column' }}>
                 <div
                   onClick={() => {
+                    markTabSeen('/site/workers');
                     navigate('/site/workers');
                     setLaborMenuOpen(prev => !prev);
                   }}
@@ -94,6 +232,12 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
                     <span>{item.label}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {item.hasBadge && !isLaborPage && !seenTabs.includes('/site/workers') && (
+                      <span 
+                        className="red-notification-dot" 
+                        title="Labour / workers pending attention"
+                      />
+                    )}
                     <span style={{
                       fontSize: '0.7rem',
                       background: isLaborPage ? '#dbeafe' : '#f1f5f9',
@@ -194,10 +338,15 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
             );
           }
 
+          const showDot = Boolean(item.hasBadge && !isActive && !seenTabs.includes(item.path));
+
           return (
             <button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                markTabSeen(item.path);
+                navigate(item.path);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -218,11 +367,11 @@ export default function Sidebar({ currentUser, onLogout, hasPendingProjects, wor
               <Icon size={17} color={isActive ? '#d97706' : '#64748b'} />
               <span>{item.label}</span>
 
-              {item.hasBadge && (
+              {showDot && (
                 <span 
                   className="red-notification-dot" 
                   style={{ marginLeft: 'auto' }}
-                  title="New pending project invitation available!"
+                  title="Alert / Notification on this module"
                 />
               )}
             </button>

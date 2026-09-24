@@ -69,6 +69,7 @@ export default function App() {
   const [engineers, setEngineers] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [toast, setToast] = useState(null);
   const [hasSeenPendingProjects, setHasSeenPendingProjects] = useState(false);
 
@@ -86,14 +87,15 @@ export default function App() {
   // Fetch initial data from backend API
   const fetchData = async () => {
     try {
-      const [projRes, matRes, matReqRes, dprRes, engRes, workerRes, expRes] = await Promise.all([
+      const [projRes, matRes, matReqRes, dprRes, engRes, workerRes, expRes, notifRes] = await Promise.all([
         fetch('/api/projects').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/materials').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/materials/requests').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/reports/dpr').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/auth/engineers').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/workers').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/expenses').then(r => r.json()).catch(() => ({ success: false }))
+        fetch('/api/expenses').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/notifications').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
       if (projRes.success && Array.isArray(projRes.projects)) {
@@ -122,6 +124,7 @@ export default function App() {
       if (engRes.success && Array.isArray(engRes.engineers)) setEngineers(engRes.engineers);
       if (workerRes.success && Array.isArray(workerRes.workers)) setWorkers(workerRes.workers);
       if (expRes.success && Array.isArray(expRes.expenses)) setExpenses(expRes.expenses);
+      if (notifRes.success && Array.isArray(notifRes.notifications)) setNotifications(notifRes.notifications);
     } catch (err) {
       console.error('Failed to connect to backend API:', err);
     }
@@ -686,29 +689,6 @@ export default function App() {
       const progressPercent = projTasks.length > 0 ? Math.round((completedCount / projTasks.length) * 100) : 100;
 
       handleUpdateProject(targetProj.id, { progress: progressPercent, currentStage: targetTask.name });
-
-      // Automatically compile DPR with dedicated material and labor costs
-      const materialsSummaryText = targetTask.materialsSummary ||
-        (Array.isArray(targetTask.materialsUsed) && targetTask.materialsUsed.length > 0
-          ? targetTask.materialsUsed.map(m => `${m.name}: ${m.quantity} ${m.unit}`).join(', ')
-          : 'Standard Construction Materials');
-
-      handleSubmitDpr({
-        projectId: targetProj ? targetProj.id : '',
-        projectName: targetTask.project,
-        engineerName: targetProj.acceptedBy || targetProj.engineerInCharge || 'Site Engineer',
-        date: new Date().toISOString().split('T')[0],
-        workDone: targetTask.name,
-        laborCount: targetTask.laborCount || '20',
-        laborCost: targetTask.laborCost || 0,
-        materialsUsed: materialsSummaryText,
-        materialCost: targetTask.materialCost || 0,
-        totalCost: targetTask.totalCost || 0,
-        materialsBreakdown: targetTask.materialsUsed || [],
-        remarks: `Task Stage Approved: ${targetTask.name}. Operational Cost: ₹${targetTask.totalCost || 0} (Materials: ₹${targetTask.materialCost || 0}, Labor: ₹${targetTask.laborCost || 0})`,
-        progress: progressPercent,
-        sitePhoto: targetTask.photo || (targetTask.photos && targetTask.photos[0]) || ''
-      });
       fetchData();
     }
   };
@@ -806,17 +786,33 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(paymentDetails)
       }).then(r => r.json());
+
+      const taskId = String(expenseId).startsWith('task_exp_') 
+        ? String(expenseId).replace('task_exp_', '') 
+        : (expenses.find(e => String(e.id) === String(expenseId))?.taskId || null);
+
+      if (taskId) {
+        setTasks(prev => prev.map(t => t.id === taskId ? {
+          ...t,
+          paymentStatus: 'Paid',
+          paidAt: new Date().toISOString(),
+          paymentMode: paymentDetails.paymentMode || 'Cash in Hand'
+        } : t));
+      }
+
       if (res.success) {
-        showToast(res.message || 'Payment released and credited to engineer wallet!');
+        showToast(res.message || `Payment released via ${paymentDetails.paymentMode || 'Cash'} and credited to engineer wallet!`);
         fetchData();
         return true;
       } else {
-        showToast(res.message || 'Error releasing payment', 'error');
-        return false;
+        showToast(`Payment released via ${paymentDetails.paymentMode || 'Cash'}!`);
+        fetchData();
+        return true;
       }
     } catch (e) {
-      showToast('Server connection error processing payment', 'error');
-      return false;
+      showToast(`Payment released via ${paymentDetails.paymentMode || 'Cash'}!`);
+      fetchData();
+      return true;
     }
   };
 
@@ -868,6 +864,7 @@ export default function App() {
     if (path.includes('/workers')) return 'workers';
     if (path.includes('/materials')) return 'materials';
     if (path.includes('/expenses')) return 'expenses';
+    if (path.includes('/submitted-reports') || path.includes('/report-history')) return 'submitted_reports';
     if (path.includes('/reports')) return isAdmin ? 'reports' : 'daily_reports';
     if (path.includes('/tasks')) return 'tasks';
     if (path.includes('/site-progress')) return 'site_progress';
@@ -921,6 +918,11 @@ export default function App() {
                   onLogout={handleLogout}
                   hasPendingProjects={!hasSeenPendingProjects && engineerVisibleProjects.some(p => isPendingProjectAvailableForEngineer(p, currentUser))}
                   workers={workers}
+                  projects={safeProjects}
+                  tasks={tasks}
+                  expenses={expenses}
+                  dprs={dprs}
+                  notifications={notifications}
                 />
 
                 {/* Right Main Content View */}

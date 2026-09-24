@@ -2,57 +2,54 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 
-// Ensure db.workers and db.workers.list exist
-function getWorkersData() {
-  if (!db.workers) {
-    db.workers = { total: 0, present: 0, absent: 0, assignedProject: "", list: [] };
-  }
-  if (!Array.isArray(db.workers.list)) {
-    db.workers.list = [];
+// Ensure db.workers is a flat array of worker documents
+function getWorkersList() {
+  if (!Array.isArray(db.workers)) {
+    if (db.workers && Array.isArray(db.workers.list)) {
+      db.workers = db.workers.list;
+    } else {
+      db.workers = [];
+    }
   }
   return db.workers;
 }
 
-function updateCounts() {
-  const w = getWorkersData();
-  w.total = w.list.length;
-  w.present = w.list.filter(item => item.status === 'Present').length;
-  w.absent = w.list.filter(item => item.status === 'Absent').length;
+function calculateStats(list) {
+  return {
+    total: list.length,
+    present: list.filter(item => item.status === 'Present').length,
+    absent: list.filter(item => item.status === 'Absent').length
+  };
 }
 
-// GET /api/workers - Fetch all site workers (supports optional ?projectId= and ?status= filters)
+// GET /api/workers - Fetch all site workers from MongoDB workers collection
 router.get('/', (req, res) => {
-  const w = getWorkersData();
-  updateCounts();
+  const list = getWorkersList();
   const { projectId, status } = req.query;
-  let workersList = w.list;
+  let filtered = list;
 
   if (projectId) {
-    workersList = workersList.filter(item => item.projectId === projectId);
+    filtered = filtered.filter(item => String(item.projectId) === String(projectId));
   }
   if (status) {
-    workersList = workersList.filter(item => item.status && item.status.toLowerCase() === status.toLowerCase());
+    filtered = filtered.filter(item => item.status && item.status.toLowerCase() === status.toLowerCase());
   }
 
   res.json({
     success: true,
-    workers: workersList,
-    stats: {
-      total: w.total,
-      present: w.present,
-      absent: w.absent
-    }
+    workers: filtered,
+    stats: calculateStats(list)
   });
 });
 
-// POST /api/workers - Add new worker
+// POST /api/workers - Add new worker (stored in MongoDB 'workers' collection)
 router.post('/', (req, res) => {
   const { name, trade, phone, dailyWage, status, projectId } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ success: false, message: 'Worker name is required' });
   }
 
-  const w = getWorkersData();
+  const list = getWorkersList();
   const newWorker = {
     id: `w_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     name: name.trim(),
@@ -64,22 +61,22 @@ router.post('/', (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  w.list.push(newWorker);
-  updateCounts();
-  db.save();
+  list.push(newWorker);
+  if (typeof db.save === 'function') db.save();
 
   res.status(201).json({
     success: true,
-    message: 'Worker added successfully',
+    message: 'Worker added successfully to MongoDB workers collection',
     worker: newWorker,
-    workers: w.list
+    workers: list,
+    stats: calculateStats(list)
   });
 });
 
 // PATCH /api/workers/:id - Update worker or attendance
 router.patch('/:id', (req, res) => {
-  const w = getWorkersData();
-  const worker = w.list.find(item => item.id === req.params.id);
+  const list = getWorkersList();
+  const worker = list.find(item => item.id === req.params.id);
   if (!worker) {
     return res.status(404).json({ success: false, message: 'Worker not found' });
   }
@@ -92,47 +89,46 @@ router.patch('/:id', (req, res) => {
   if (status !== undefined) worker.status = status;
   if (projectId !== undefined) worker.projectId = projectId;
 
-  updateCounts();
-  db.save();
+  if (typeof db.save === 'function') db.save();
 
   res.json({
     success: true,
-    message: 'Worker updated successfully',
+    message: 'Worker updated successfully in MongoDB workers collection',
     worker,
-    workers: w.list
+    workers: list,
+    stats: calculateStats(list)
   });
 });
 
 // DELETE /api/workers/:id - Delete worker
 router.delete('/:id', (req, res) => {
-  const w = getWorkersData();
-  const idx = w.list.findIndex(item => item.id === req.params.id);
+  const list = getWorkersList();
+  const idx = list.findIndex(item => item.id === req.params.id);
   if (idx === -1) {
     return res.status(404).json({ success: false, message: 'Worker not found' });
   }
 
-  const removed = w.list.splice(idx, 1)[0];
-  updateCounts();
-  db.save();
+  const removed = list.splice(idx, 1)[0];
+  if (typeof db.save === 'function') db.save();
 
   res.json({
     success: true,
-    message: 'Worker deleted successfully',
+    message: 'Worker deleted successfully from MongoDB workers collection',
     worker: removed,
-    workers: w.list
+    workers: list,
+    stats: calculateStats(list)
   });
 });
 
 // DELETE /api/workers - Clear all workers
 router.delete('/', (req, res) => {
-  const w = getWorkersData();
-  w.list = [];
-  updateCounts();
-  db.save();
+  db.workers = [];
+  if (typeof db.save === 'function') db.save();
   res.json({
     success: true,
-    message: 'All workers deleted successfully',
-    workers: []
+    message: 'All workers deleted successfully from MongoDB workers collection',
+    workers: [],
+    stats: { total: 0, present: 0, absent: 0 }
   });
 });
 

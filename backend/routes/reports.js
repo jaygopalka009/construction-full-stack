@@ -2,10 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 
-// GET /api/reports/dpr - Get Daily Progress Reports (supports optional ?projectId=, ?date=, ?limit=)
-router.get('/dpr', (req, res) => {
+// GET /api/reports and /api/reports/dpr - Get Submitted Daily Progress Reports
+router.get(['/', '/dpr'], (req, res) => {
   const { projectId, date, limit } = req.query;
-  let list = Array.isArray(db.dprs) ? db.dprs : [];
+  let list = Array.isArray(db.reports) && db.reports.length > 0 
+    ? db.reports 
+    : (Array.isArray(db.dprs) ? db.dprs : []);
 
   if (projectId) {
     list = list.filter(d => d.projectId === projectId);
@@ -17,11 +19,11 @@ router.get('/dpr', (req, res) => {
     list = list.slice(0, Math.max(0, parseInt(limit, 10)));
   }
 
-  res.json({ success: true, dprs: list, total: list.length });
+  res.json({ success: true, reports: list, dprs: list, total: list.length });
 });
 
-// POST /api/reports/dpr - Create a Daily Progress Report with Photo & Progress % Update
-router.post('/dpr', (req, res) => {
+// POST /api/reports and /api/reports/dpr - Create a Daily Progress Report with Photo & Progress % Update
+router.post(['/', '/dpr'], (req, res) => {
   const { 
     projectId, projectName, engineerName, engineerPhone, date, weather, 
     laborCount, workDone, materialsUsed, remarks, progress, sitePhoto, photos,
@@ -36,6 +38,50 @@ router.post('/dpr', (req, res) => {
     ? Number(totalCost) 
     : ((Number(materialCost) || 0) + (Number(laborCost) || 0) + (Number(machineryCharge) || 0));
 
+  // Relational Foreign Key normalization to eliminate duplication
+  const rawLabor = Array.isArray(laborBreakdown) ? laborBreakdown : (Array.isArray(laborDetails) ? laborDetails : []);
+  const normalizedLabor = rawLabor.map(lb => {
+    let matchedWorker = (db.workers || []).find(w => 
+      (lb.name && w.name.toLowerCase() === lb.name.toLowerCase()) || 
+      (lb.trade && w.trade.toLowerCase() === lb.trade.toLowerCase())
+    );
+    return {
+      workerId: lb.workerId || (matchedWorker ? matchedWorker.id : `WRK-${Math.floor(100 + Math.random() * 900)}`),
+      name: lb.name || (matchedWorker ? matchedWorker.name : 'Site Labor'),
+      trade: lb.trade || (matchedWorker ? matchedWorker.trade : 'Worker'),
+      dailyWage: Number(lb.dailyWage || lb.cost || (matchedWorker ? matchedWorker.dailyWage : 500)),
+      count: Number(lb.count || 1)
+    };
+  });
+
+  const rawMaterials = Array.isArray(materialsBreakdown) ? materialsBreakdown : [];
+  const normalizedMaterials = rawMaterials.map(mb => {
+    let matchedMat = (db.materials || []).find(m => 
+      (mb.name && m.name.toLowerCase().includes(mb.name.toLowerCase())) || 
+      (mb.name && mb.name.toLowerCase().includes(m.name.toLowerCase()))
+    );
+    return {
+      materialId: mb.materialId || (matchedMat ? matchedMat.id : `MAT-${Math.floor(100 + Math.random() * 900)}`),
+      name: mb.name || (matchedMat ? matchedMat.name : 'Material'),
+      quantity: Number(mb.quantity) || 1,
+      unit: mb.unit || (matchedMat ? matchedMat.unit : 'Unit'),
+      totalCost: Number(mb.totalCost) || 0
+    };
+  });
+
+  const rawMachinery = Array.isArray(req.body.machineryBreakdown) ? req.body.machineryBreakdown : [];
+  const normalizedMachinery = rawMachinery.map(mb => {
+    let matchedEq = (db.equipment || []).find(e => 
+      (mb.name && e.name.toLowerCase().includes(mb.name.toLowerCase())) || 
+      (mb.name && mb.name.toLowerCase().includes(e.name.toLowerCase()))
+    );
+    return {
+      equipmentId: mb.equipmentId || (matchedEq ? matchedEq.id : `EQ-${Math.floor(100 + Math.random() * 900)}`),
+      name: mb.name || (matchedEq ? matchedEq.name : 'Equipment'),
+      charge: Number(mb.charge) || 0
+    };
+  });
+
   const newDpr = {
     id: `dpr_${Date.now()}`,
     projectId: projectId || (db.projects[0] ? db.projects[0].id : ""),
@@ -44,14 +90,16 @@ router.post('/dpr', (req, res) => {
     engineerPhone: engineerPhone || "",
     date: date || new Date().toISOString().split('T')[0],
     weather: weather || "Clear Weather",
-    laborCount: Number(laborCount) || 20,
+    laborCount: Number(laborCount) || (normalizedLabor.length > 0 ? normalizedLabor.reduce((acc, l) => acc + (l.count || 1), 0) : 20),
     laborCost: Number(laborCost) || 0,
-    laborBreakdown: Array.isArray(laborBreakdown) ? laborBreakdown : (Array.isArray(laborDetails) ? laborDetails : []),
+    laborBreakdown: normalizedLabor,
     materialCost: Number(materialCost) || 0,
     machineryUsed: machineryUsed || "None",
     machineryCharge: Number(machineryCharge) || 0,
+    machineryExpenses: normalizedMachinery,
+    machineryBreakdown: normalizedMachinery,
     totalCost: calculatedTotalCost,
-    materialsBreakdown: Array.isArray(materialsBreakdown) ? materialsBreakdown : [],
+    materialsBreakdown: normalizedMaterials,
     workDone: workDone || "Site Work in Progress",
     materialsUsed: materialsUsed || "Standard Materials",
     remarks: remarks || "Auto-compiled daily site execution report",
@@ -60,7 +108,21 @@ router.post('/dpr', (req, res) => {
     photos: photoList
   };
 
+  if (!Array.isArray(db.dprs)) db.dprs = [];
+  if (!Array.isArray(db.reports)) db.reports = [];
   db.dprs.unshift(newDpr);
+  db.reports.unshift(newDpr);
+
+  // Trigger Admin notification
+  if (typeof db.addNotification === 'function') {
+    db.addNotification({
+      title: 'Daily Report (DPR) Submitted',
+      message: `${newDpr.engineerName || 'Site Engineer'} submitted daily report for "${newDpr.projectName}".`,
+      type: 'dpr',
+      targetRole: 'admin',
+      link: '/admin/reports'
+    });
+  }
 
   // Update associated project's overall progress & add photo evidence
   const proj = db.projects.find(p => p.id === newDpr.projectId || p.name === newDpr.projectName);

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>BuildMaster Construction ERP - Complete Practical & Viva Guide</title>
+<style>
+  body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; line-height: 1.6; color: #1e293b; padding: 30px; }
+  h1 { color: #1e3a8a; border-bottom: 3px solid #2563eb; padding-bottom: 8px; font-size: 24pt; }
+  h2 { color: #1d4ed8; border-bottom: 1.5px solid #93c5fd; padding-bottom: 5px; font-size: 17pt; margin-top: 25px; }
+  h3 { color: #0f766e; font-size: 13pt; margin-top: 18px; }
+  p, li { font-size: 11pt; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 9pt; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .callout { background: #f8fafc; border-left: 5px solid #2563eb; padding: 12px 18px; margin: 15px 0; border-radius: 0 8px 8px 0; }
+  .speech-box { background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 15px; margin: 15px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10pt; }
+  th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+  th { background-color: #f1f5f9; color: #0f172a; font-weight: bold; }
+  tr:nth-child(even) { background-color: #f8fafc; }
+  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; color: #be123c; font-size: 10pt; }
+</style>
+</head>
+<body>
+
+<h1>🏗️ BuildMaster Construction ERP</h1>
+<h3>Full Stack Civil Project Management & Supervision Portal</h3>
+<p><strong>Prepared for:</strong> College Practical Examination & Viva Presentation<br>
+<strong>Technology Stack:</strong> Node.js, Express.js, React.js (Vite), MongoDB<br>
+<strong>Architecture:</strong> RESTful API, Full Stack Single Page Application (SPA)</p>
+
+<hr/>
+
+<h2>1. સૌપ્રથમ શું બોલવું? (Introduction Speech for Examiner)</h2>
+<div class="speech-box">
+  <h3 style="margin-top:0; color:#166534;">🗣️ Examiner સામે આપવાની રજૂઆત (ગુજરાતી + English Mix):</h3>
+  <p><em>"Good morning / Good afternoon Sir/Madam,</em></p>
+  <p>મારું પ્રોજેક્ટ છે <strong>BuildMaster Construction ERP</strong>. આ એક <strong>Full Stack Web Application</strong> છે જે ખાસ કરીને સિવિલ કન્સ્ટ્રક્શન કંપનીઓ અને સાઈટ મેનેજમેન્ટ માટે બનાવવામાં આવ્યું છે.</p>
+  <p><strong>પ્રોબ્લેમ શું હતો?:</strong> સામાન્ય રીતે કન્સ્ટ્રક્શન સાઈટ પર કઈ સ્ટેજ પર કામ પહોંચ્યું, રોજ કેટલા મજૂરો હાજર હતા, કેટલો માલ (સિમેન્ટ, સ્ટીલ, રેતી) વપરાયો અને રોજનો કેટલો ખર્ચ થયો તેનો સાચો હિસાબ ઓફિસમાં બેઠેલા એડમિન સુધી સમયસર પહોંચતો નથી.</p>
+  <p><strong>આપણા પ્રોજેક્ટનું સોલ્યુશન:</strong></p>
+  <ul>
+    <li>અમારા સોફ્ટવેરમાં <strong>3 મુખ્ય યુઝર રોલ્સ</strong> છે: <strong>Admin (ઓનર/કન્ટ્રાક્ટર)</strong>, <strong>Site Engineer (ફીલ્ડ સુપરવાઈઝર)</strong> અને <strong>Client (ગ્રાહક)</strong>.</li>
+    <li>સાઈટ એન્જિનિયર સાઈટ પરથી જ ટાસ્કનો <strong>ફોટો અપલોડ</strong> કરીને કામ સબમિટ કરે છે, જે એડમિન એપ્રુવ કરે એટલે આપમેળે પ્રોજેક્ટનું <strong>પ્રોગ્રેસ %</strong> વધી જાય છે.</li>
+    <li>રોજબરોજના કામ માટે <strong>Daily Progress Report (DPR)</strong> સિસ્ટમ છે, જેમાં આજના <strong>હાજર મજૂરો (Labor Wages)</strong>, <strong>વપરાયેલ મટીરીયલ (Materials Consumed)</strong>, અને <strong>મશીનરીનો ખર્ચ</strong> ભરાય છે અને એડમિનને લાઈવ સબમિટ થાય છે.</li>
+    <li>ગ્રાહક (Client) પોતાના લોગીનથી ઘર બેઠા જોઈ શકે છે કે તેનું મકાન કેટલા ટકા બન્યું અને કયા સ્ટેજના કેવા ફોટા છે."</li>
+  </ul>
+</div>
+
+<hr/>
+
+<h2>2. પ્રોજેક્ટની મુખ્ય Workflow (How System Works)</h2>
+<div class="callout">
+  <ol>
+    <li><strong>પ્રોજેક્ટ ક્રિએશન:</strong> Admin નવી સાઈટ (જેમ કે 'Riddhi Villa Bungalows') ઉમેરે છે. તેમાં કન્સ્ટ્રક્શન સ્ટેજીસ (Survey, Excavation, Foundation, RCC Slab, Brickwork વગેરે) ઓટોમેટિક ટેમ્પલેટમાંથી બની જાય છે.</li>
+    <li><strong>એન્જિનિયર અસાઇનમેન્ટ:</strong> Admin આ પ્રોજેક્ટ સાઈટ એન્જિનિયરને સોંપે છે. એન્જિનિયર ડેશબોર્ડ પરથી 'Accept Project' કરે છે.</li>
+    <li><strong>ટાસ્ક સ્ટેજ પૂર્ણ કરવું:</strong> એન્જિનિયર સ્ટેજ પતે એટલે સાઈટનો કેમેરામાંથી <strong>ઓછામાં ઓછો 1 લાઈવ ફોટો</strong> અપલોડ કરે છે (ફોટો અપલોડ ફરજિયાત છે). સ્ટેટસ 'Awaiting Approval' બને છે.</li>
+    <li><strong>એડમિન એપ્રુવલ:</strong> એડમિન ફોટો વેરિફાય કરીને Approve કરે છે. સાઈટનું ઓવરઓલ પ્રગતિ ટકાવારી (Progress %) આપમેળે વધે છે.</li>
+    <li><strong>ડેઇલી પ્રોગ્રેસ રિપોર્ટ (DPR):</strong> એન્જિનિયર રોજનું થયેલું કામ, સાઈટના વર્કર્સની હાજરી, વપરાયેલ માલ અને મશીનરી એન્ટર કરી આજનો દૈનિક ખર્ચ સબમિટ કરે છે. તે સીધો 'Submitted Reports Archive' માં જમા થાય છે.</li>
+    <li><strong>વોલેટ અને એક્સપેન્સ:</strong> સાઈટના નાના-મોટા ખર્ચ કે કેશ એડવાન્સ માટે એન્જિનિયર ક્લેઈમ મોકલે છે, એડમિન એપ્રુવ કરે એટલે વોલેટ બેલેન્સમાં ક્રેડિટ થાય છે.</li>
+    <li><strong>ક્લાયન્ટ ટ્રાન્સપરન્સી:</strong> ક્લાયન્ટ પોતાના લોગિનમાં માત્ર રીડ-ઓન્લી વ્યૂ જોઈ શકે છે જેથી સાઈટની સંપૂર્ણ પારદર્શિતા રહે.</li>
+  </ol>
+</div>
+
+<hr/>
+
+<h2>3. File-by-File Detailed Breakdown (કઈ ફાઇલ શેના માટે છે?)</h2>
+
+<h3>A. Backend Files (Node.js + Express + MongoDB)</h3>
+<table>
+  <tr>
+    <th style="width:25%;">ફાઇલનું નામ</th>
+    <th style="width:30%;">ટેકનોલોજી / કલેક્શન</th>
+    <th>મુખ્ય ઉપયોગ અને કાર્ય</th>
+  </tr>
+  <tr>
+    <td><code>backend/server.js</code></td>
+    <td>Express, CORS, Node.js</td>
+    <td>બેકએન્ડનું <strong>મુખ્ય એન્ટ્રી પોઇન્ટ</strong> છે. સર્વર શરૂ કરે છે (Port 5000), બધા API રૂટ્સને માઉન્ટ કરે છે અને MongoDB ડેટાબેઝ સાથે કનેક્શન સ્થાપિત કરે છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/database/db.js</code></td>
+    <td>MongoDB Native Driver</td>
+    <td>ડેટાબેઝ મેનેજમેન્ટ ફાઇલ છે. આમાં MongoDB ના 12 એક્ટિવ કલેક્શન્સ (<code>admins</code>, <code>engineers</code>, <code>clients</code>, <code>equipment</code>, <code>projects</code>, <code>tasks</code>, <code>dprs</code>, <code>reports</code>, <code>expenses</code>, <code>payments</code>, <code>workers</code>, <code>materials</code>) કનેક્ટ થાય છે. આમાં નોર્મલાઇઝ્ડ રિલેશનલ ડિઝાઇન સાથે ફોરેન કી (Foreign Keys) વાપરેલ છે જેથી ડેટા ડુપ્લિકેશન અટકે છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/auth.js</code></td>
+    <td>Express Router, Auth API</td>
+    <td>લોગિન અને રજીસ્ટ્રેશન હેન્ડલ કરે છે. Admin, Site Engineer અને Client ના ઈમેઈલ અને પાસવર્ડ ચેક કરીને એક્સેસ આપે છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/projects.js</code></td>
+    <td>Express Router, MongoDB</td>
+    <td>પ્રોજેક્ટ્સ અને ટાસ્ક માટેનો સૌથી મોટો રૂટ છે. નવો પ્રોજેક્ટ બનાવવો, સ્ટેજ અપડેટ કરવા, સાઈટ ફોટા સેવ કરવા અને પ્રોજેક્ટની પ્રોગ્રેસ % કેલ્ક્યુલેટ કરવાનું કામ કરે છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/reports.js</code></td>
+    <td>Express Router, DPR Storage</td>
+    <td>Daily Progress Report (DPR) માટેનો રૂટ. સાઈટ એન્જિનિયરે મોકલેલ રોજિંદો રિપોર્ટ સેવ કરે છે અને એડમિનને જૂના રિપોર્ટ્સ આર્કાઇવ ફિલ્ટર કરી બતાવે છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/expenses.js</code></td>
+    <td>Express Router, Expenses API</td>
+    <td>સાઈટ એક્સપેન્સ અને વોલેટ ટ્રાન્ઝેક્શન મેનેજ કરે છે. સાઈટ ક્લેઈમ, કેશ એડવાન્સ અને એડમિન પેમેન્ટ એપ્રુવલ આ ફાઇલ દ્વારા થાય છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/materials.js</code></td>
+    <td>Express Router, Inventory API</td>
+    <td>સાઈટ મટીરીયલ ઇન્વેન્ટરી અને સ્ટોક મેનેજમેન્ટ માટે છે. સાઈટ પર માલ ઓછો હોય ત્યારે એન્જિનિયર મટીરીયલ રિક્વેસ્ટ મોકલે છે તે આ રૂટથી હેન્ડલ થાય છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/workers.js</code></td>
+    <td>Express Router, Workforce API</td>
+    <td>સાઈટના કારીગરો (Mason, Electrician, Plumber, Helper વગેરે) નું લિસ્ટ, તેમની દૈનિક મજૂરી અને રોજિંદી હાજરી (Attendance) સેવ કરે છે. DPR માં <code>workerId</code> Foreign Key તરીકે વપરાય છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/clients.js</code></td>
+    <td>Express Router, Clients API</td>
+    <td>ક્લાયન્ટ્સ/ડેવલપર્સનું માસ્ટર કલેક્શન હેન્ડલ કરે છે. પ્રોજેક્ટ્સમાં <code>clientId</code> Foreign Key તરીકે જોડાય છે જેથી ડેટા ડુપ્લિકેટ ન થાય.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/equipment.js</code></td>
+    <td>Express Router, Equipment API</td>
+    <td>હેવી કન્સ્ટ્રક્શન મશીનરી (JCB, Concrete Mixer, Crane વગેરે) નું માસ્ટર કલેક્શન સાચવે છે. DPR માં <code>equipmentId</code> Foreign Key તરીકે લિંક થાય છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/notifications.js</code></td>
+    <td>Express Router, Alerts</td>
+    <td>જ્યારે એન્જિનિયર ટાસ્ક અથવા DPR સબમિટ કરે કે એડમિન એપ્રુવ કરે ત્યારે રીઅલ-ટાઇમ એલર્ટ અને રેડ ડોટ નોટિફિકેશન મોકલે છે.</td>
+  </tr>
+  <tr>
+    <td><code>backend/routes/engineers.js</code></td>
+    <td>Express Router, Staff API</td>
+    <td>સાઈટ એન્જિનિયર્સની પ્રોફાઇલ, કોન્ટેક્ટ વિગતો અને તેમને અસાઇન થયેલા પ્રોજેક્ટ્સની યાદી આપે છે.</td>
+  </tr>
+</table>
+
+<h3>B. Frontend Files (React.js + Vite)</h3>
+<table>
+  <tr>
+    <th style="width:25%;">ફાઇલનું નામ</th>
+    <th style="width:30%;">પ્રકાર</th>
+    <th>મુખ્ય ઉપયોગ અને કાર્ય</th>
+  </tr>
+  <tr>
+    <td><code>frontend/src/main.jsx</code></td>
+    <td>React DOM Root</td>
+    <td>ક્લાયન્ટ સાઇડનું એન્ટ્રી પોઇન્ટ જે <code>index.html</code> ના <code>#root</code> div માં સમગ્ર React એપ્લિકેશનને રેન્ડર કરે છે.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/App.jsx</code></td>
+    <td>Main Controller Component</td>
+    <td>સમગ્ર એપ્લિકેશનનું હૃદય (Brain) છે. આમાં બધા સ્ટેટ્સ (Projects, Tasks, Materials, DPRs, User Session), API કૉલ્સ, ટોસ્ટ નોટિફિકેશન અને રોલ મુજબ ડેશબોર્ડ સ્વિચિંગ થાય છે.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/HomePage.jsx</code></td>
+    <td>Landing & Login Portal</td>
+    <td>પ્રોજેક્ટનું હોમ પેજ છે. સુંદર હીરો સેક્શન, કન્સ્ટ્રક્શન ફીચર્સ અને 3 મુખ્ય રોલ સિલેક્ટર કાર્ડ્સ (Admin, Site Engineer, Client) ધરાવે છે જેથી સહેલાઈથી લોગિન થઈ શકાય.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/AdminDashboard.jsx</code></td>
+    <td>Executive Management UI</td>
+    <td>એડમિન / કોન્ટ્રાક્ટરનું ડેશબોર્ડ છે. અહીંથી નવો પ્રોજેક્ટ બને છે, એન્જિનિયર અસાઇન થાય છે, ટાસ્ક પુરા થવાના ફોટા જોઈને Approve/Reject થાય છે, અને નાણાકીય ખર્ચ મંજૂર થાય છે.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/SiteEngineerDashboard.jsx</code></td>
+    <td>Field Operations UI</td>
+    <td>સાઈટ એન્જિનિયરનું મુખ્ય વર્કબેન્ચ છે. ટાસ્કના લાઈવ ફોટા અપલોડ કરવા, રોજના મજૂરોની હાજરી, માલ-સામાનનો વપરાશ, સાઈટ મશીનરી ચાર્જિસ અને દૈનિક DPR સબમિટ કરવા માટે વપરાય છે.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/ClientDashboard.jsx</code></td>
+    <td>Client Tracking Portal</td>
+    <td>ગ્રાહક (મકાન માલિક) નું પોર્ટલ છે. સાઈટનું કામ કેટલા ટકા પત્યું, કયા સ્ટેજના ફોટા અપલોડ થયા, અને સાઈટ વિગતો શાંતિથી જોઈ શકે છે.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/Navbar.jsx</code></td>
+    <td>Header Navigation Component</td>
+    <td>ઉપરનું હેડર બાર જેમાં લોગો, યુઝર પ્રોફાઇલ, રોલ બેજ, નોટિફિકેશન બેલ (લાલ ટપકા સાથે) અને લોગઆઉટ બટન છે.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/NotificationCenter.jsx</code></td>
+    <td>Modal Popup</td>
+    <td>નોટિફિકેશન લિસ્ટ દર્શાવે છે જેથી નવા અપડેટ્સ (જેમ કે 'Task Approved' કે 'New DPR Submitted') યુઝર જોઈ શકે.</td>
+  </tr>
+</table>
+
+<h3>C. Utility & Helper Files</h3>
+<table>
+  <tr>
+    <th style="width:25%;">ફાઇલનું નામ</th>
+    <th style="width:30%;">ડેટા ટાઇપ</th>
+    <th>મુખ્ય ઉપયોગ અને કાર્ય</th>
+  </tr>
+  <tr>
+    <td><code>utils/materialCatalog.js</code></td>
+    <td>JSON Constants Catalog</td>
+    <td>કન્સ્ટ્રક્શનમાં વપરાતા માલસામાન (Cement Bags, TMT Steel Bars, Bricks, Sand, Coarse Aggregate વગેરે) નું સ્ટાન્ડર્ડ કેટલોગ, તેના યુનિટ્સ અને ડિફોલ્ટ માર્કેટ રેટ ધરાવે છે.</td>
+  </tr>
+  <tr>
+    <td><code>utils/laborCategories.js</code></td>
+    <td>Labor Roles & Wages</td>
+    <td>કારીગરોની કેટેગરી (Mason/કડિયો, Plumber, Electrician, Carpenter, Helper) અને તેમના દૈનિક ભથ્થાં (Daily Wages) નું લિસ્ટ છે.</td>
+  </tr>
+  <tr>
+    <td><code>utils/taskTemplates.js</code></td>
+    <td>Civil Engineering Stages</td>
+    <td>સિવિલ કન્સ્ટ્રક્શનના સ્ટાન્ડર્ડ ફેઝીસ (Survey, Excavation, Foundation, Column Casting, Brickwork, Plaster, Flooring, Painting વગેરે) ઓટોમેટિક જનરેટ કરે છે.</td>
+  </tr>
+  <tr>
+    <td><code>utils/formatters.js</code></td>
+    <td>Utility Functions</td>
+    <td>રૂપિયાનું ફોર્મેટિંગ (ભારતીય પદ્ધતિ મુજબ ₹1,75,000) અને તારીખનું ફોર્મેટિંગ કરવા માટેના ફંક્શન્સ ધરાવે છે.</td>
+  </tr>
+</table>
+
+<hr/>
+
+<h2>4. પરીક્ષામાં પૂછાઈ શકે તેવા પ્રશ્નો અને જવાબો (Top 10 Viva Questions)</h2>
+
+<div class="callout">
+  <p><strong>Q1: પ્રોજેક્ટનું આર્કિટેક્ચર શું છે?</strong><br>
+  <strong>A:</strong> અમારું પ્રોજેક્ટ <strong>MERN Stack (MongoDB, Express.js, React.js, Node.js)</strong> આર્કિટેક્ચર પર આધારિત છે. ફ્રન્ટએન્ડ Vite બંડલર સાથે React Single Page Application (SPA) છે અને બેકએન્ડ RESTful API આર્કિટેક્ચર છે.</p>
+
+  <p><strong>Q2: સાઈટ પરથી ફોટા અપલોડ કેવી રીતે થાય છે અને ક્યાં સ્ટોર થાય છે?</strong><br>
+  <strong>A:</strong> ફ્રન્ટએન્ડમાં HTML5 Canvas API દ્વારા ફોટાને ક્લાયન્ટ સાઇડ પર જ <strong>કમ્પ્રેસ (Compress)</strong> કરીને Base64 ડેટામાં કન્વર્ટ કરવામાં આવે છે, જેથી ડેટાબેઝ પર ભાર ન પડે અને ક્લાઉડ સ્ટોરેજ વિના પણ હાઇ-સ્પીડ ફોટો પ્રૂફ ડેટાબેઝમાં સુરક્ષિત રીતે સચવાય છે.</p>
+
+  <p><strong>Q3: પ્રોજેક્ટની પ્રગતિ ટકાવારી (Progress %) કેવી રીતે ગણાય છે?</strong><br>
+  <strong>A:</strong> પ્રોજેક્ટમાં રહેલા કુલ સ્ટેજીસ (Tasks) માંથી એડમિન દ્વારા મંજૂર (Approved) થયેલા સ્ટેજીસની સંખ્યાના આધારે ગાણિતિક સૂત્ર <code>(Completed Tasks / Total Tasks) * 100</code> દ્વારા ઓટોમેટિક કેલ્ક્યુલેટ થાય છે.</p>
+
+  <p><strong>Q4: ટાસ્ક (Tasks) અને ડેઇલી રિપોર્ટ (DPR) વચ્ચે શું તફાવત છે?</strong><br>
+  <strong>A:</strong> 
+  <ul>
+    <li><strong>Tasks:</strong> કન્સ્ટ્રક્શનના મોટા સીમાચિહ્નો (Milestones) છે (જેમ કે Foundation Soil Excavation), જે પૂરા થવા પર ફોટો એવિડન્સ જરૂરી છે.</li>
+    <li><strong>Daily Report (DPR):</strong> રોજિંદા કામનો દૈનિક હિસાબ છે, જેમાં આજના દિવસે હાજર રહેલા મજૂરો (Labor Wages), વપરાયેલો માલ (Cement/Steel), મશીનરી અને આજનો કુલ સાઈટ ખર્ચ નોંધાય છે.</li>
+  </ul>
+  </p>
+
+  <p><strong>Q5: સાઈટ મજૂરી (Labor Wages) ની ગણતરી સિસ્ટમ કેવી રીતે કરે છે?</strong><br>
+  <strong>A:</strong> સાઈટ એન્જિનિયર સાઈટ પર હાજર રહેલા વર્કર્સને સિલેક્ટ કરે છે. દરેક વર્કરના રોલ મુજબ (દા.ત. Mason = ₹800, Helper = ₹500) સિસ્ટમ તમામ હાજર વર્કર્સનો સરવાળો કરીને આજનો કુલ લેબર ખર્ચ ઓટોમેટિક કેલ્ક્યુલેટ કરે છે.</p>
+
+  <p><strong>Q6: મટીરીયલ ઇન્વેન્ટરી અને સ્ટોક કેવી રીતે અપડેટ થાય છે?</strong><br>
+  <strong>A:</strong> સાઈટ પર જ્યારે એન્જિનિયર DPR માં માલસામાન વપરાશ દાખલ કરે છે, ત્યારે સિસ્ટમ તેને પ્રોજેક્ટના લોકલ સ્ટોકમાંથી ડિડક્ટ કરવાનો રેકોર્ડ રાખે છે અને જરૂર પડે તો એડમિન પાસે નવા માલની રિક્વેસ્ટ મોકલે છે.</p>
+
+  <p><strong>Q7: જો MongoDB ડેટાબેઝ સર્વર બંધ હોય તો શું થાય?</strong><br>
+  <strong>A:</strong> <code>backend/database/db.js</code> ફાઇલમાં અમે <strong>Dual-Layer Architecture (Fallback System)</strong> બનાવ્યું છે. જો MongoDB સર્વર બંધ હોય તો પણ સિસ્ટમ ક્રેશ થયા વગર ઇન-મેમરી સ્ટેટથી એપ્લિકેશન ચાલુ રહે છે.</p>
+
+  <p><strong>Q8: ત્રણ અલગ યુઝર્સ વચ્ચે ડેટા સિક્યોરિટી અને રોલ મેનેજમેન્ટ કેવી રીતે થાય છે?</strong><br>
+  <strong>A:</strong> <strong>Role-Based Access Control (RBAC)</strong> દ્વારા. એડમિન તમામ પ્રોજેક્ટ્સ અને ફાયનાન્સિયલ મંજૂરીઓ સંભાળે છે, એન્જિનિયર માત્ર તેને સોંપાયેલા પ્રોજેક્ટ્સમાં એન્ટ્રી કરી શકે છે, અને ક્લાયન્ટ માત્ર પોતાનું જ મકાન જોઈ શકે છે.</p>
+
+  <p><strong>Q9: આ એપ્લિકેશન મોબાઇલમાં વાપરી શકાય?</strong><br>
+  <strong>A:</strong> હા, ફ્રન્ટએન્ડ સંપૂર્ણપણે <strong>Responsive Web Design</strong> ધરાવે છે. સાઈટ એન્જિનિયર પોતાના મોબાઈલ બ્રાઉઝરથી સીધો સાઈટ પર ઉભા રહીને કેમેરા ઓપન કરી ફોટો પાડીને તરત જ ટાસ્ક અને DPR સબમિટ કરી શકે છે.</p>
+
+  <p><strong>Q10: પ્રોજેક્ટનું ભવિષ્યમાં શું વિસ્તરણ (Future Scope) થઈ શકે?</strong><br>
+  <strong>A:</strong> GPS જિયો-ફેન્સિંગ દ્વારા સાઈટ પર વર્કર્સની ઓટો-હાજરી, AI દ્વારા ફોટોમાંથી ક્રિમિનલ અથવા સેફ્ટી વાયોલેશન ચેકિંગ (હેલ્મેટ/સેફ્ટી શૂઝ), અને ઓનલાઇન પેમેન્ટ ગેટવે (Razorpay/Stripe) નું ઇન્ટિગ્રેશન.</p>
+</div>
+
+<p style="text-align:center; color:#64748b; font-size:10pt; margin-top:30px;">
+  BuildMaster Construction ERP &copy; 2026 | Full Stack MERN System | All Rights Reserved
+</p>
+
+</body>
+</html>
